@@ -2,7 +2,7 @@
 # Wraps PlatformIO commands for convenience
 
 .PHONY: all build build-release upload upload-release flash flash-release \
-        clean format check monitor size erase build-fs upload-fs help
+        clean format check monitor size erase build-fs upload-fs sleep-screen help
 
 # Default target
 all: help
@@ -54,6 +54,19 @@ build-fs:
 upload-fs:
 	pio run --target uploadfs
 
+# Image conversion
+sleep-screen:
+ifdef INPUT
+ifdef OUTPUT
+	python3 scripts/create_sleep_screen_image.py $(INPUT) $(OUTPUT) $(ARGS)
+else
+	@echo "Usage: make sleep-screen INPUT=<image> OUTPUT=<bmp> [ARGS='--dither --bits 8']"
+endif
+else
+	@echo "Usage: make sleep-screen INPUT=<image> OUTPUT=<bmp> [ARGS='--dither --bits 8']"
+	@echo "Example: make sleep-screen INPUT=photo.jpg OUTPUT=sleep.bmp"
+endif
+
 # Help
 help:
 	@echo "CrossPoint Reader Makefile"
@@ -80,3 +93,8 @@ help:
 	@echo "Filesystem:"
 	@echo "  make build-fs       - Build SPIFFS filesystem"
 	@echo "  make upload-fs      - Upload SPIFFS to device"
+	@echo ""
+	@echo "Image conversion:"
+	@echo "  make sleep-screen INPUT=<image> OUTPUT=<bmp> [ARGS='...']"
+	@echo "                      - Convert image to sleep screen format"
+	@echo "  Options: --orientation portrait|landscape, --bits 2|4|8, --dither, --fit contain|cover|stretch"

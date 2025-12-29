@@ -25,7 +25,7 @@ const SettingInfo settingsList[settingsCount] = {
     {"Front Button Layout",
      SettingType::ENUM,
      &CrossPointSettings::frontButtonLayout,
-     {"Bck, Cnfrm, Lft, Rght", "Lft, Rght, Bck, Cnfrm"}},
+     {"B C L R", "L R B C"}},
     {"Check for updates", SettingType::ACTION, nullptr, {}},
 };
 }  // namespace

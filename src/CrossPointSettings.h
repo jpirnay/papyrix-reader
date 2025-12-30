@@ -45,6 +45,9 @@ class CrossPointSettings {
   // Sleep timeout options (in minutes)
   enum SLEEP_TIMEOUT { SLEEP_5_MIN = 0, SLEEP_10_MIN = 1, SLEEP_15_MIN = 2, SLEEP_30_MIN = 3 };
 
+  // Home screen layout options
+  enum HOME_LAYOUT { HOME_GRID = 0, HOME_LIST = 1 };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Status bar settings
@@ -67,6 +70,8 @@ class CrossPointSettings {
   uint8_t showBookCover = 1;
   // Auto-sleep timeout setting
   uint8_t sleepTimeout = SLEEP_10_MIN;
+  // Home screen layout (grid or list)
+  uint8_t homeLayout = HOME_GRID;
 
   ~CrossPointSettings() = default;
 

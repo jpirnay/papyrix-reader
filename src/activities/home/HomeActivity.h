@@ -21,6 +21,9 @@ class HomeActivity final : public Activity {
   static void taskTrampoline(void* param);
   [[noreturn]] void displayTaskLoop();
   void render() const;
+  void renderGrid() const;
+  void renderList() const;
+  int getMenuItemCount() const;
 
  public:
   explicit HomeActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,

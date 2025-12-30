@@ -34,12 +34,21 @@ Upon turning the device on for the first time, you will be placed on the **Home*
 
 ### 3.1 Home Screen
 
-The Home Screen uses a **2x2 grid layout** with four options:
+The Home Screen layout can be configured in Settings (see **Home Layout** setting):
 
+#### Grid Layout (default)
+A **2x2 grid** with four options:
 - **READ** (top-left) — Continue reading your last book (shows "N/A" if no book loaded)
 - **FILES** (top-right) — Browse and select books from the SD card
 - **SYNC** (bottom-left) — File transfer via WiFi web server
 - **SETUP** (bottom-right) — Device settings
+
+#### List Layout
+A vertical menu with:
+- **Continue: [Book Name]** — Resume reading (only shown if a book is open)
+- **Browse** — Browse and select books from the SD card
+- **File transfer** — Upload files via WiFi web server
+- **Settings** — Device settings
 
 **Navigation:**
 * Use **Left/Right** or **Volume Up/Down** to move between options
@@ -99,6 +108,10 @@ The Settings screen allows you to configure the device's behavior:
 - **Sleep Timeout** (default: 10 min)
   - Options: 5 min, 10 min, 15 min, 30 min
   - Time of inactivity before the device automatically sleeps
+
+- **Home Layout** (default: Grid)
+  - Options: Grid, List
+  - Home screen layout style (2x2 grid or vertical list)
 
 - **Reading Orientation** (default: Portrait)
   - Options: Portrait, Landscape CW, Inverted, Landscape CCW

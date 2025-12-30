@@ -14,7 +14,7 @@ Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint
 ### Changes from Original
 
 - **Font size setting** - Added configurable font sizes (Small/Medium/Large)
-- **Redesigned home screen** - New 2x2 grid layout for better navigation
+- **Redesigned home screen** - New 2x2 grid layout (or classic list view, configurable)
 - **Improved UI font** - Updated from Ubuntu 10pt to 12pt for better readability
 - **Better default font size** - Changed to 16pt Normal for comfortable reading
 - **Book cover display** - Show book cover as first page when reading (configurable)

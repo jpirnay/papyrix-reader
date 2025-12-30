@@ -4,6 +4,7 @@
 #include <InputManager.h>
 #include <SD.h>
 
+#include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "config.h"
 
@@ -47,39 +48,62 @@ void HomeActivity::onExit() {
   renderingMutex = nullptr;
 }
 
+int HomeActivity::getMenuItemCount() const { return hasContinueReading ? 4 : 3; }
+
 void HomeActivity::loop() {
   const bool prevPressed = mappedInput.wasPressed(MappedInputManager::Button::Up) ||
                            mappedInput.wasPressed(MappedInputManager::Button::Left);
   const bool nextPressed = mappedInput.wasPressed(MappedInputManager::Button::Down) ||
                            mappedInput.wasPressed(MappedInputManager::Button::Right);
 
-  // Sequential navigation: READ(0) -> FILES(1) -> SYNC(2) -> SETUP(3) -> wrap
-  // Skip index 0 if no continue reading
+  const bool isGridLayout = SETTINGS.homeLayout == CrossPointSettings::HOME_GRID;
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    // Grid positions: 0=Continue/READ, 1=Browse/FILES, 2=Transfer/SYNC, 3=Settings/SETUP
-    if (selectorIndex == 0 && hasContinueReading) {
-      onContinueReading();
-    } else if (selectorIndex == 1) {
-      onReaderOpen();
-    } else if (selectorIndex == 2) {
-      onFileTransferOpen();
-    } else if (selectorIndex == 3) {
-      onSettingsOpen();
+    if (isGridLayout) {
+      // Grid positions: 0=Continue/READ, 1=Browse/FILES, 2=Transfer/SYNC, 3=Settings/SETUP
+      if (selectorIndex == 0 && hasContinueReading) {
+        onContinueReading();
+      } else if (selectorIndex == 1) {
+        onReaderOpen();
+      } else if (selectorIndex == 2) {
+        onFileTransferOpen();
+      } else if (selectorIndex == 3) {
+        onSettingsOpen();
+      }
+    } else {
+      // List mode: dynamic menu based on hasContinueReading
+      if (hasContinueReading) {
+        if (selectorIndex == 0) onContinueReading();
+        else if (selectorIndex == 1) onReaderOpen();
+        else if (selectorIndex == 2) onFileTransferOpen();
+        else if (selectorIndex == 3) onSettingsOpen();
+      } else {
+        if (selectorIndex == 0) onReaderOpen();
+        else if (selectorIndex == 1) onFileTransferOpen();
+        else if (selectorIndex == 2) onSettingsOpen();
+      }
     }
   } else if (prevPressed) {
-    int newIndex = selectorIndex - 1;
-    if (newIndex < 0) newIndex = 3;
-    // Skip N/A cell if no continue reading
-    if (newIndex == 0 && !hasContinueReading) newIndex = 3;
-    selectorIndex = newIndex;
+    if (isGridLayout) {
+      int newIndex = selectorIndex - 1;
+      if (newIndex < 0) newIndex = 3;
+      if (newIndex == 0 && !hasContinueReading) newIndex = 3;
+      selectorIndex = newIndex;
+    } else {
+      const int menuCount = getMenuItemCount();
+      selectorIndex = (selectorIndex + menuCount - 1) % menuCount;
+    }
     updateRequired = true;
   } else if (nextPressed) {
-    int newIndex = selectorIndex + 1;
-    if (newIndex > 3) newIndex = 0;
-    // Skip N/A cell if no continue reading
-    if (newIndex == 0 && !hasContinueReading) newIndex = 1;
-    selectorIndex = newIndex;
+    if (isGridLayout) {
+      int newIndex = selectorIndex + 1;
+      if (newIndex > 3) newIndex = 0;
+      if (newIndex == 0 && !hasContinueReading) newIndex = 1;
+      selectorIndex = newIndex;
+    } else {
+      const int menuCount = getMenuItemCount();
+      selectorIndex = (selectorIndex + 1) % menuCount;
+    }
     updateRequired = true;
   }
 }
@@ -99,6 +123,19 @@ void HomeActivity::displayTaskLoop() {
 void HomeActivity::render() const {
   renderer.clearScreen();
 
+  if (SETTINGS.homeLayout == CrossPointSettings::HOME_GRID) {
+    renderGrid();
+  } else {
+    renderList();
+  }
+
+  const auto btnLabels = mappedInput.mapLabels("Back", "Confirm", "Left", "Right");
+  renderer.drawButtonHints(UI_FONT_ID, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
+
+  renderer.displayBuffer();
+}
+
+void HomeActivity::renderGrid() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
@@ -154,9 +191,52 @@ void HomeActivity::render() const {
       renderer.drawText(READER_FONT_ID, textX, textY, labels[i], true, BOLD);
     }
   }
+}
 
-  const auto btnLabels = mappedInput.mapLabels("Back", "Confirm", "Left", "Right");
-  renderer.drawButtonHints(UI_FONT_ID, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
+void HomeActivity::renderList() const {
+  const auto pageWidth = renderer.getScreenWidth();
 
-  renderer.displayBuffer();
+  renderer.drawCenteredText(READER_FONT_ID, 10, "Papyrix Reader", true, BOLD);
+
+  // Draw selection highlight
+  renderer.fillRect(0, 60 + selectorIndex * 30 - 2, pageWidth - 1, 30);
+
+  int menuY = 60;
+  int menuIndex = 0;
+
+  if (hasContinueReading) {
+    // Extract filename from path for display
+    std::string bookName = APP_STATE.openEpubPath;
+    const size_t lastSlash = bookName.find_last_of('/');
+    if (lastSlash != std::string::npos) {
+      bookName = bookName.substr(lastSlash + 1);
+    }
+    // Remove .epub extension
+    if (bookName.length() > 5 && bookName.substr(bookName.length() - 5) == ".epub") {
+      bookName.resize(bookName.length() - 5);
+    }
+
+    // Truncate if too long
+    std::string continueLabel = "Continue: " + bookName;
+    int itemWidth = renderer.getTextWidth(UI_FONT_ID, continueLabel.c_str());
+    while (itemWidth > renderer.getScreenWidth() - 40 && continueLabel.length() > 13) {
+      continueLabel.resize(continueLabel.length() - 4);
+      continueLabel += "...";
+      itemWidth = renderer.getTextWidth(UI_FONT_ID, continueLabel.c_str());
+    }
+
+    renderer.drawText(UI_FONT_ID, 20, menuY, continueLabel.c_str(), selectorIndex != menuIndex);
+    menuY += 30;
+    menuIndex++;
+  }
+
+  renderer.drawText(UI_FONT_ID, 20, menuY, "Browse", selectorIndex != menuIndex);
+  menuY += 30;
+  menuIndex++;
+
+  renderer.drawText(UI_FONT_ID, 20, menuY, "File transfer", selectorIndex != menuIndex);
+  menuY += 30;
+  menuIndex++;
+
+  renderer.drawText(UI_FONT_ID, 20, menuY, "Settings", selectorIndex != menuIndex);
 }

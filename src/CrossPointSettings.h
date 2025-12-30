@@ -73,7 +73,7 @@ class CrossPointSettings {
   // Get singleton instance
   static CrossPointSettings& getInstance() { return instance; }
 
-  uint16_t getPowerButtonDuration() const { return shortPwrBtn ? 10 : 500; }
+  uint16_t getPowerButtonDuration() const { return shortPwrBtn ? 10 : 400; }
 
   uint32_t getSleepTimeoutMs() const {
     switch (sleepTimeout) {

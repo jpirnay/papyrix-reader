@@ -181,9 +181,15 @@ For more details on the internal file structures, see the [file formats document
 
 ## Related Tools
 
-### EPUB Optimizer
+### EPUB to XTC Converter (Web)
 
-[xteink-epub-optimizer](https://github.com/bigbag/xteink-epub-optimizer) optimizes EPUB files for the Xteink X4's constraints (480×800 display, limited RAM):
+[epub-to-xtc-converter](https://github.com/bigbag/epub-to-xtc-converter) — browser-based converter from EPUB to Xteink's native XTC/XTCH format. No installation required.
+
+**Live version:** [liashkov.site/epub-to-xtc-converter](https://liashkov.site/epub-to-xtc-converter/)
+
+### EPUB Optimizer (CLI)
+
+[xteink-epub-optimizer](https://github.com/bigbag/xteink-epub-optimizer) — command-line tool to optimize EPUB files for the Xteink X4's constraints (480×800 display, limited RAM):
 
 - **CSS Sanitization** - Removes complex layouts (floats, flexbox, grid)
 - **Font Removal** - Strips embedded fonts to reduce file size

@@ -121,7 +121,9 @@ void EpubReaderChapterSelectionActivity::renderScreen() {
 
   const auto pageWidth = renderer.getScreenWidth();
   const int pageItems = getPageItems();
-  renderer.drawCenteredText(THEME.readerFontId, 10, "Select Chapter", THEME.primaryTextBlack, BOLD);
+
+  std::string title = renderer.truncatedText(THEME.readerFontId, epub->getTitle().c_str(), pageWidth - 40, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 15, title.c_str(), THEME.primaryTextBlack, BOLD);
 
   const auto pageStartIndex = selectorIndex / pageItems * pageItems;
   renderer.fillRect(0, 60 + (selectorIndex % pageItems) * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);

@@ -161,8 +161,8 @@ void EpubReaderActivity::loop() {
     return;
   }
 
-  // any botton press when at end of the book goes back to the last page
-  if (currentSpineIndex > 0 && currentSpineIndex >= epub->getSpineItemsCount()) {
+  // any button press when at end of the book goes back to the last page
+  if (currentSpineIndex >= epub->getSpineItemsCount() && epub->getSpineItemsCount() > 0) {
     currentSpineIndex = epub->getSpineItemsCount() - 1;
     nextPageNumber = UINT16_MAX;
     updateRequired = true;
@@ -524,8 +524,9 @@ void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const in
   int progressTextWidth = 0;
 
   if (showProgress) {
-    // Calculate progress in book
-    const float sectionChapterProg = static_cast<float>(section->currentPage) / section->pageCount;
+    // Calculate progress in book (guard against division by zero)
+    const float sectionChapterProg =
+        section->pageCount > 0 ? static_cast<float>(section->currentPage) / section->pageCount : 0.0f;
     const uint8_t bookProgress = epub->calculateProgress(currentSpineIndex, sectionChapterProg);
 
     // Right aligned text for progress counter

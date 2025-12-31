@@ -143,7 +143,10 @@ void FileSelectionActivity::loop() {
     }
   } else if (prevReleased && !files.empty()) {
     if (skipPage) {
-      selectorIndex = ((selectorIndex / PAGE_ITEMS - 1) * PAGE_ITEMS + files.size()) % files.size();
+      // Go to previous page start (use safe modulo for negative numbers)
+      const int n = static_cast<int>(files.size());
+      const int newIndex = (selectorIndex / PAGE_ITEMS - 1) * PAGE_ITEMS;
+      selectorIndex = ((newIndex % n) + n) % n;
     } else {
       selectorIndex = (selectorIndex + files.size() - 1) % files.size();
     }

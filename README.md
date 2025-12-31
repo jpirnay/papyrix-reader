@@ -22,6 +22,7 @@ Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint
 - **Book cover display** - Show book cover as first page when reading (configurable)
 - **Sleep timeout setting** - Configurable auto-sleep timeout (5/10/15/30 min)
 - **UTF-8 filename support** - Cyrillic and other non-ASCII characters in file names
+- **EPUB 3 support** - Native navigation document (nav.xhtml) parsing with NCX fallback
 
 ## Motivation
 
@@ -37,7 +38,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 
 ## Features & Usage
 
-- [x] EPUB parsing and rendering
+- [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
 - [ ] Image support within EPUB
 - [x] Saved reading position
 - [x] exFAT SD card support (in addition to FAT32)

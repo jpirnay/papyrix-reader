@@ -33,7 +33,7 @@ bool TextBlock::serialize(FsFile& file) const {
   }
 
   // Word data
-  serialization::writePod(file, static_cast<uint32_t>(words.size()));
+  serialization::writePod(file, static_cast<uint16_t>(words.size()));
   for (const auto& w : words) serialization::writeString(file, w);
   for (auto x : wordXpos) serialization::writePod(file, x);
   for (auto s : wordStyles) serialization::writePod(file, s);
@@ -45,10 +45,10 @@ bool TextBlock::serialize(FsFile& file) const {
 }
 
 std::unique_ptr<TextBlock> TextBlock::deserialize(FsFile& file) {
-  uint32_t wc;
+  uint16_t wc;
   std::list<std::string> words;
   std::list<uint16_t> wordXpos;
-  std::list<EpdFontStyle> wordStyles;
+  std::list<EpdFontFamily::Style> wordStyles;
   BLOCK_STYLE style;
 
   // Word count

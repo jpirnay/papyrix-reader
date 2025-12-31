@@ -6,7 +6,7 @@
 #include <WiFiClientSecure.h>
 
 namespace {
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/daveallie/crosspoint-reader/releases/latest";
+constexpr char latestReleaseUrl[] = "https://api.github.com/repos/bigbag/papyrix-reader/releases/latest";
 }
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {

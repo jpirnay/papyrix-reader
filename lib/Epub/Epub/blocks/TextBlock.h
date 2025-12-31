@@ -21,11 +21,11 @@ class TextBlock final : public Block {
  private:
   std::list<std::string> words;
   std::list<uint16_t> wordXpos;
-  std::list<EpdFontStyle> wordStyles;
+  std::list<EpdFontFamily::Style> wordStyles;
   BLOCK_STYLE style;
 
  public:
-  explicit TextBlock(std::list<std::string> words, std::list<uint16_t> word_xpos, std::list<EpdFontStyle> word_styles,
+  explicit TextBlock(std::list<std::string> words, std::list<uint16_t> word_xpos, std::list<EpdFontFamily::Style> word_styles,
                      const BLOCK_STYLE style)
       : words(std::move(words)), wordXpos(std::move(word_xpos)), wordStyles(std::move(word_styles)), style(style) {}
   ~TextBlock() override = default;

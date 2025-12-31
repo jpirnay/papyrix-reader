@@ -14,7 +14,7 @@ class GfxRenderer;
 
 class ParsedText {
   std::list<std::string> words;
-  std::list<EpdFontStyle> wordStyles;
+  std::list<EpdFontFamily::Style> wordStyles;
   TextBlock::BLOCK_STYLE style;
   bool extraParagraphSpacing;
 
@@ -29,12 +29,12 @@ class ParsedText {
       : style(style), extraParagraphSpacing(extraParagraphSpacing) {}
   ~ParsedText() = default;
 
-  void addWord(std::string word, EpdFontStyle fontStyle);
+  void addWord(std::string word, EpdFontFamily::Style fontStyle);
   void setStyle(const TextBlock::BLOCK_STYLE style) { this->style = style; }
   TextBlock::BLOCK_STYLE getStyle() const { return style; }
   size_t size() const { return words.size(); }
   bool isEmpty() const { return words.empty(); }
-  void layoutAndExtractLines(const GfxRenderer& renderer, int fontId, int viewportWidth,
+  void layoutAndExtractLines(const GfxRenderer& renderer, int fontId, uint16_t viewportWidth,
                              const std::function<void(std::shared_ptr<TextBlock>)>& processLine,
                              bool includeLastLine = true);
 };

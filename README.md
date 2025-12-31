@@ -16,7 +16,7 @@ Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint
 - **Custom themes** - User-editable theme files on SD card (colors, layout, button mapping)
 - **Custom fonts** - Load external fonts from SD card (.epdfont format)
 - **Font size setting** - Added configurable font sizes (Small/Medium/Large)
-- **Redesigned home screen** - New 2x2 grid layout (or list view via theme)
+- **Redesigned home screen** - New 2x2 grid layout (or list view via theme) with battery indicator
 - **Improved UI font** - Updated from Ubuntu 10pt to 12pt for better readability
 - **Better default font size** - Changed to 16pt Normal for comfortable reading
 - **Book cover display** - Show book cover as first page when reading (configurable)

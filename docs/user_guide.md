@@ -35,6 +35,8 @@ Upon turning the device on for the first time, you will be placed on the **Home*
 
 The Home Screen layout is controlled by your theme (see [Customization Guide](customization.md)).
 
+A **battery indicator** is displayed in the top-right corner, showing the current battery level as a percentage with an icon.
+
 #### Grid Layout (default)
 A **2x2 grid** with four options:
 - **READ** (top-left) — Continue reading your last book. When "Show Book Info" is enabled, displays the book title and author; otherwise shows "N/A" if no book loaded.

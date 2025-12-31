@@ -7,6 +7,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ScreenComponents.h"
 #include "ThemeManager.h"
 #include "config.h"
 
@@ -165,6 +166,11 @@ void HomeActivity::render() const {
   } else {
     renderList();
   }
+
+  // Battery indicator - top right
+  const int batteryX = renderer.getScreenWidth() - 60;
+  const int batteryY = 10;
+  ScreenComponents::drawBattery(renderer, batteryX, batteryY);
 
   const auto btnLabels = mappedInput.mapLabels("Back", "Confirm", "Left", "Right");
   renderer.drawButtonHints(THEME.uiFontId, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4,

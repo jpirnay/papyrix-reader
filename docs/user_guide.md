@@ -8,10 +8,9 @@ the device.
 The device utilises the standard buttons on the Xtink X4 in the same layout:
 
 ### Button Layout
-| Location        | Buttons                                    |
-|-----------------|--------------------------------------------|
-| **Bottom Edge** | **Back**, **Confirm**, **Left**, **Right** |
-| **Right Side**  | **Power**, **Volume Up**, **Volume Down**  |
+
+- **Bottom Edge:** Back, Confirm, Left, Right
+- **Right Side:** Power, Volume Up, Volume Down
 
 ---
 
@@ -34,7 +33,7 @@ Upon turning the device on for the first time, you will be placed on the **Home*
 
 ### 3.1 Home Screen
 
-The Home Screen layout can be configured in Settings (see **Home Layout** setting):
+The Home Screen layout is controlled by your theme (see [Customization Guide](customization.md)).
 
 #### Grid Layout (default)
 A **2x2 grid** with four options:
@@ -77,12 +76,17 @@ When you enter the screen, you'll be prompted to choose a network mode:
 * **Join Network:** Connect to an existing WiFi network. You'll see a list of available networks and can enter passwords as needed. Previously saved networks will connect automatically.
 * **Create Hotspot:** The X4 creates its own WiFi network that you can connect to directly from your computer or phone.
 
-Once connected, your X4 will start hosting a web server. See the [webserver docs](./docs/webserver.md) for more
+Once connected, your X4 will start hosting a web server. See the [webserver docs](webserver.md) for more
 information on how to connect and upload files.
 
 ### 3.5 Settings
 
 The Settings screen allows you to configure the device's behavior:
+
+- **Theme** (default: light)
+  - Select from available themes (light, dark, or custom themes from SD card)
+  - Themes control colors, home layout (grid/list), button mappings, and fonts
+  - See [Customization Guide](customization.md) for creating custom themes
 
 - **Sleep Screen** (default: Dark)
   - Options: Dark, Light, Custom, Cover
@@ -105,20 +109,13 @@ The Settings screen allows you to configure the device's behavior:
 - **Short Power Button Click** (default: OFF)
   - Whether to trigger power on a short press (ON) or long press (OFF)
 
-- **Sleep Timeout** (default: 10 min)
-  - Options: 5 min, 10 min, 15 min, 30 min
-  - Time of inactivity before the device automatically sleeps
-
-- **Home Layout** (default: Grid)
-  - Options: Grid, List
-  - Home screen layout style (2x2 grid or vertical list)
-
 - **Reading Orientation** (default: Portrait)
   - Options: Portrait, Landscape CW, Inverted, Landscape CCW
   - Screen orientation for reading
 
-- **Front Button Layout** (default: Default)
-  - Options: Default (Back/Confirm/Left/Right), Swapped (Left/Right/Back/Confirm)
+- **Sleep Timeout** (default: 10 min)
+  - Options: 5 min, 10 min, 15 min, 30 min
+  - Time of inactivity before the device automatically sleeps
 
 - **Check for updates**
   - Check for and install firmware updates via WiFi
@@ -137,12 +134,10 @@ You can customize the sleep screen by placing custom images in specific location
 
 #### Image Parameters
 
-| Parameter | Recommended Value |
-|-----------|-------------------|
-| Resolution | 480 × 800 pixels (portrait mode) |
-| Color depth | 8-bit grayscale or 24-bit color |
-| Format | BMP, uncompressed (BI_RGB) |
-| Display levels | 4 grayscale (black, dark gray, light gray, white) |
+- **Resolution:** 480 × 800 pixels (portrait mode)
+- **Color depth:** 8-bit grayscale or 24-bit color
+- **Format:** BMP, uncompressed (BI_RGB)
+- **Display levels:** 4 grayscale (black, dark gray, light gray, white)
 
 > [!TIP]
 > - Use 8-bit grayscale for best results - it's widely supported by image editors
@@ -159,10 +154,9 @@ You can customize the sleep screen by placing custom images in specific location
 Once you have opened a book, the button layout changes to facilitate reading.
 
 ### Page Turning
-| Action            | Buttons                              |
-|-------------------|--------------------------------------|
-| **Previous Page** | Press **Left** _or_ **Volume Up**    |
-| **Next Page**     | Press **Right** _or_ **Volume Down** |
+
+- **Previous Page:** Press **Left** or **Volume Up**
+- **Next Page:** Press **Right** or **Volume Down**
 
 ### Chapter Navigation
 * **Next Chapter:** Press and **hold** the **Right** (or **Volume Down**) button briefly, then release.
@@ -190,3 +184,9 @@ Please note that this firmware is currently in active development. The following
 are planned for future updates:
 
 * **Images:** Embedded images in e-books will not render.
+
+---
+
+## 7. Customization
+
+For detailed instructions on creating custom themes and adding custom fonts, see the [Customization Guide](customization.md).

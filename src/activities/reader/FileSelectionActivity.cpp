@@ -4,6 +4,7 @@
 #include <SDCardManager.h>
 
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 namespace {
@@ -162,31 +163,33 @@ void FileSelectionActivity::displayTaskLoop() {
 }
 
 void FileSelectionActivity::render() const {
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
   const auto pageWidth = renderer.getScreenWidth();
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Books", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Books", THEME.primaryTextBlack, BOLD);
 
   // Help text
   const auto labels = mappedInput.mapLabels("« Home", "Open", "", "");
-  renderer.drawButtonHints(UI_FONT_ID, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  renderer.drawButtonHints(THEME.uiFontId, labels.btn1, labels.btn2, labels.btn3, labels.btn4, THEME.primaryTextBlack);
 
   if (files.empty()) {
-    renderer.drawText(UI_FONT_ID, 20, 60, "No books found");
+    renderer.drawText(THEME.uiFontId, 20, 60, "No books found", THEME.primaryTextBlack);
     renderer.displayBuffer();
     return;
   }
 
   const auto pageStartIndex = selectorIndex / PAGE_ITEMS * PAGE_ITEMS;
-  renderer.fillRect(0, 60 + (selectorIndex % PAGE_ITEMS) * 30 - 2, pageWidth - 1, 30);
+  renderer.fillRect(0, 60 + (selectorIndex % PAGE_ITEMS) * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);
   for (int i = pageStartIndex; i < files.size() && i < pageStartIndex + PAGE_ITEMS; i++) {
     auto item = files[i];
-    int itemWidth = renderer.getTextWidth(UI_FONT_ID, item.c_str());
+    int itemWidth = renderer.getTextWidth(THEME.uiFontId, item.c_str());
     while (itemWidth > renderer.getScreenWidth() - 40 && item.length() > 8) {
       item.replace(item.length() - 5, 5, "...");
-      itemWidth = renderer.getTextWidth(UI_FONT_ID, item.c_str());
+      itemWidth = renderer.getTextWidth(THEME.uiFontId, item.c_str());
     }
-    renderer.drawText(UI_FONT_ID, 20, 60 + (i % PAGE_ITEMS) * 30, item.c_str(), i != selectorIndex);
+    const bool isSelected = (i == selectorIndex);
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
+    renderer.drawText(THEME.uiFontId, 20, 60 + (i % PAGE_ITEMS) * THEME.itemHeight, item.c_str(), textColor);
   }
 
   renderer.displayBuffer();

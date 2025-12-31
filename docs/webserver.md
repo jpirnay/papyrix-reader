@@ -1,10 +1,10 @@
 # Web Server Guide
 
-This guide explains how to connect your CrossPoint Reader to WiFi and use the built-in web server to upload EPUB files from your computer or phone.
+This guide explains how to connect your Papyrix Reader to WiFi and use the built-in web server to upload EPUB files from your computer or phone.
 
 ## Overview
 
-CrossPoint Reader includes a built-in web server that allows you to:
+Papyrix Reader includes a built-in web server that allows you to:
 
 - Upload EPUB files wirelessly from any device on the same WiFi network
 - Browse and manage files on your device's SD card
@@ -13,7 +13,7 @@ CrossPoint Reader includes a built-in web server that allows you to:
 
 ## Prerequisites
 
-- Your CrossPoint Reader device
+- Your Papyrix Reader device
 - A WiFi network
 - A computer, phone, or tablet connected to the **same WiFi network**
 
@@ -88,7 +88,7 @@ Once connected, the screen will display:
 
 ### From a Computer
 
-1. Ensure your computer is connected to the **same WiFi network** as your CrossPoint Reader
+1. Ensure your computer is connected to the **same WiFi network** as your Papyrix Reader
 2. Open any web browser (Chrome is recommended)
 3. Type the IP address shown on your device into the browser's address bar
    - Example: `http://192.168.1.102/`
@@ -96,7 +96,7 @@ Once connected, the screen will display:
 
 ### From a Phone or Tablet
 
-1. Ensure your phone/tablet is connected to the **same WiFi network** as your CrossPoint Reader
+1. Ensure your phone/tablet is connected to the **same WiFi network** as your Papyrix Reader
 2. Open your mobile browser (Safari, Chrome, etc.)
 3. Type the IP address into the address bar
    - Example: `http://192.168.1.102/`
@@ -180,7 +180,7 @@ This is useful for organizing your ebooks by genre, author, or series.
 
 1. Verify both devices are on the **same WiFi network**
    - Check your computer/phone WiFi settings
-   - Confirm the CrossPoint Reader shows "Connected" status
+   - Confirm the Papyrix Reader shows "Connected" status
 2. Double-check the IP address
    - Make sure you typed it correctly
    - Include `http://` at the beginning
@@ -257,7 +257,7 @@ This is useful for organizing your ebooks by genre, author, or series.
 
 When you're finished uploading files:
 
-1. Press the **Back** button on your CrossPoint Reader
+1. Press the **Back** button on your Papyrix Reader
 2. The web server will automatically stop
 3. WiFi will disconnect to conserve battery
 4. You'll return to the previous screen
@@ -268,5 +268,6 @@ Your uploaded files will be immediately available in the file browser!
 
 ## Related Documentation
 
-- [User Guide](../USER_GUIDE.md) - General device operation
+- [User Guide](user_guide.md) - General device operation
+- [Customization Guide](customization.md) - Custom themes and fonts
 - [README](../README.md) - Project overview and features

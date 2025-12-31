@@ -1,41 +1,42 @@
 #include "MappedInputManager.h"
 
 #include "CrossPointSettings.h"
+#include "ThemeManager.h"
 
 decltype(InputManager::BTN_BACK) MappedInputManager::mapButton(const Button button) const {
-  const auto frontLayout = static_cast<CrossPointSettings::FRONT_BUTTON_LAYOUT>(SETTINGS.frontButtonLayout);
+  const auto frontLayout = static_cast<FrontButtonLayout>(THEME.frontButtonLayout);
   const auto sideLayout = static_cast<CrossPointSettings::SIDE_BUTTON_LAYOUT>(SETTINGS.sideButtonLayout);
 
   switch (button) {
     case Button::Back:
       switch (frontLayout) {
-        case CrossPointSettings::LEFT_RIGHT_BACK_CONFIRM:
+        case FRONT_LRBC:
           return InputManager::BTN_LEFT;
-        case CrossPointSettings::BACK_CONFIRM_LEFT_RIGHT:
+        case FRONT_BCLR:
         default:
           return InputManager::BTN_BACK;
       }
     case Button::Confirm:
       switch (frontLayout) {
-        case CrossPointSettings::LEFT_RIGHT_BACK_CONFIRM:
+        case FRONT_LRBC:
           return InputManager::BTN_RIGHT;
-        case CrossPointSettings::BACK_CONFIRM_LEFT_RIGHT:
+        case FRONT_BCLR:
         default:
           return InputManager::BTN_CONFIRM;
       }
     case Button::Left:
       switch (frontLayout) {
-        case CrossPointSettings::LEFT_RIGHT_BACK_CONFIRM:
+        case FRONT_LRBC:
           return InputManager::BTN_BACK;
-        case CrossPointSettings::BACK_CONFIRM_LEFT_RIGHT:
+        case FRONT_BCLR:
         default:
           return InputManager::BTN_LEFT;
       }
     case Button::Right:
       switch (frontLayout) {
-        case CrossPointSettings::LEFT_RIGHT_BACK_CONFIRM:
+        case FRONT_LRBC:
           return InputManager::BTN_CONFIRM;
-        case CrossPointSettings::BACK_CONFIRM_LEFT_RIGHT:
+        case FRONT_BCLR:
         default:
           return InputManager::BTN_RIGHT;
       }
@@ -80,12 +81,12 @@ unsigned long MappedInputManager::getHeldTime() const { return inputManager.getH
 
 MappedInputManager::Labels MappedInputManager::mapLabels(const char* back, const char* confirm, const char* previous,
                                                          const char* next) const {
-  const auto layout = static_cast<CrossPointSettings::FRONT_BUTTON_LAYOUT>(SETTINGS.frontButtonLayout);
+  const auto layout = static_cast<FrontButtonLayout>(THEME.frontButtonLayout);
 
   switch (layout) {
-    case CrossPointSettings::LEFT_RIGHT_BACK_CONFIRM:
+    case FRONT_LRBC:
       return {previous, next, back, confirm};
-    case CrossPointSettings::BACK_CONFIRM_LEFT_RIGHT:
+    case FRONT_BCLR:
     default:
       return {back, confirm, previous, next};
   }

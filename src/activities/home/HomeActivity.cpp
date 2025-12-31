@@ -6,6 +6,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 void HomeActivity::taskTrampoline(void* param) {
@@ -56,7 +57,7 @@ void HomeActivity::loop() {
   const bool nextPressed = mappedInput.wasPressed(MappedInputManager::Button::Down) ||
                            mappedInput.wasPressed(MappedInputManager::Button::Right);
 
-  const bool isGridLayout = SETTINGS.homeLayout == CrossPointSettings::HOME_GRID;
+  const bool isGridLayout = THEME.homeLayout == HOME_GRID;
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (isGridLayout) {
@@ -121,16 +122,17 @@ void HomeActivity::displayTaskLoop() {
 }
 
 void HomeActivity::render() const {
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
-  if (SETTINGS.homeLayout == CrossPointSettings::HOME_GRID) {
+  if (THEME.homeLayout == HOME_GRID) {
     renderGrid();
   } else {
     renderList();
   }
 
   const auto btnLabels = mappedInput.mapLabels("Back", "Confirm", "Left", "Right");
-  renderer.drawButtonHints(UI_FONT_ID, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4);
+  renderer.drawButtonHints(THEME.uiFontId, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4,
+                           THEME.primaryTextBlack);
 
   renderer.displayBuffer();
 }
@@ -139,7 +141,7 @@ void HomeActivity::renderGrid() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Papyrix Reader", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Papyrix Reader", THEME.primaryTextBlack, BOLD);
 
   // Grid layout constants
   constexpr int cellWidth = 180;
@@ -166,29 +168,29 @@ void HomeActivity::renderGrid() const {
     const bool isDisabled = (i == 0 && !hasContinueReading);
 
     if (isDisabled) {
-      // Draw disabled N/A cell (outline only, gray appearance)
-      renderer.drawRect(cellX, cellY, cellWidth, cellHeight, true);
+      // Draw disabled N/A cell (outline only)
+      renderer.drawRect(cellX, cellY, cellWidth, cellHeight, THEME.primaryTextBlack);
       // Center "N/A" text in cell
-      const int textWidth = renderer.getTextWidth(READER_FONT_ID, "N/A", BOLD);
+      const int textWidth = renderer.getTextWidth(THEME.readerFontId, "N/A", BOLD);
       const int textX = cellX + (cellWidth - textWidth) / 2;
-      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(READER_FONT_ID) / 2;
-      renderer.drawText(READER_FONT_ID, textX, textY, "N/A", true, BOLD);
+      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(THEME.readerFontId) / 2;
+      renderer.drawText(THEME.readerFontId, textX, textY, "N/A", THEME.secondaryTextBlack, BOLD);
     } else if (isSelected) {
-      // Draw selected cell (filled black with white text)
-      renderer.fillRect(cellX, cellY, cellWidth, cellHeight, true);
+      // Draw selected cell (filled with selection color)
+      renderer.fillRect(cellX, cellY, cellWidth, cellHeight, THEME.selectionFillBlack);
       // Center text in cell
-      const int textWidth = renderer.getTextWidth(READER_FONT_ID, labels[i], BOLD);
+      const int textWidth = renderer.getTextWidth(THEME.readerFontId, labels[i], BOLD);
       const int textX = cellX + (cellWidth - textWidth) / 2;
-      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(READER_FONT_ID) / 2;
-      renderer.drawText(READER_FONT_ID, textX, textY, labels[i], false, BOLD);
+      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(THEME.readerFontId) / 2;
+      renderer.drawText(THEME.readerFontId, textX, textY, labels[i], THEME.selectionTextBlack, BOLD);
     } else {
-      // Draw unselected cell (outline with black text)
-      renderer.drawRect(cellX, cellY, cellWidth, cellHeight, true);
+      // Draw unselected cell (outline with primary text color)
+      renderer.drawRect(cellX, cellY, cellWidth, cellHeight, THEME.primaryTextBlack);
       // Center text in cell
-      const int textWidth = renderer.getTextWidth(READER_FONT_ID, labels[i], BOLD);
+      const int textWidth = renderer.getTextWidth(THEME.readerFontId, labels[i], BOLD);
       const int textX = cellX + (cellWidth - textWidth) / 2;
-      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(READER_FONT_ID) / 2;
-      renderer.drawText(READER_FONT_ID, textX, textY, labels[i], true, BOLD);
+      const int textY = cellY + cellHeight / 2 - renderer.getFontAscenderSize(THEME.readerFontId) / 2;
+      renderer.drawText(THEME.readerFontId, textX, textY, labels[i], THEME.primaryTextBlack, BOLD);
     }
   }
 }
@@ -196,10 +198,10 @@ void HomeActivity::renderGrid() const {
 void HomeActivity::renderList() const {
   const auto pageWidth = renderer.getScreenWidth();
 
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Papyrix Reader", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Papyrix Reader", THEME.primaryTextBlack, BOLD);
 
   // Draw selection highlight
-  renderer.fillRect(0, 60 + selectorIndex * 30 - 2, pageWidth - 1, 30);
+  renderer.fillRect(0, 60 + selectorIndex * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);
 
   int menuY = 60;
   int menuIndex = 0;
@@ -218,25 +220,27 @@ void HomeActivity::renderList() const {
 
     // Truncate if too long
     std::string continueLabel = "Continue: " + bookName;
-    int itemWidth = renderer.getTextWidth(UI_FONT_ID, continueLabel.c_str());
+    int itemWidth = renderer.getTextWidth(THEME.uiFontId, continueLabel.c_str());
     while (itemWidth > renderer.getScreenWidth() - 40 && continueLabel.length() > 13) {
       continueLabel.resize(continueLabel.length() - 4);
       continueLabel += "...";
-      itemWidth = renderer.getTextWidth(UI_FONT_ID, continueLabel.c_str());
+      itemWidth = renderer.getTextWidth(THEME.uiFontId, continueLabel.c_str());
     }
 
-    renderer.drawText(UI_FONT_ID, 20, menuY, continueLabel.c_str(), selectorIndex != menuIndex);
-    menuY += 30;
+    const bool isSelected = (selectorIndex == menuIndex);
+    renderer.drawText(THEME.uiFontId, 20, menuY, continueLabel.c_str(), isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack);
+    menuY += THEME.itemHeight;
     menuIndex++;
   }
 
-  renderer.drawText(UI_FONT_ID, 20, menuY, "Browse", selectorIndex != menuIndex);
-  menuY += 30;
-  menuIndex++;
+  auto drawMenuItem = [&](const char* label) {
+    const bool isSelected = (selectorIndex == menuIndex);
+    renderer.drawText(THEME.uiFontId, 20, menuY, label, isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack);
+    menuY += THEME.itemHeight;
+    menuIndex++;
+  };
 
-  renderer.drawText(UI_FONT_ID, 20, menuY, "File transfer", selectorIndex != menuIndex);
-  menuY += 30;
-  menuIndex++;
-
-  renderer.drawText(UI_FONT_ID, 20, menuY, "Settings", selectorIndex != menuIndex);
+  drawMenuItem("Browse");
+  drawMenuItem("File transfer");
+  drawMenuItem("Settings");
 }

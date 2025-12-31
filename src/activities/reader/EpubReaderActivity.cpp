@@ -11,6 +11,7 @@
 #include "CrossPointState.h"
 #include "EpubReaderChapterSelectionActivity.h"
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 namespace {
@@ -233,8 +234,8 @@ void EpubReaderActivity::renderScreen() {
 
   // Show end of book screen
   if (currentSpineIndex == epub->getSpineItemsCount()) {
-    renderer.clearScreen();
-    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "End of book", true, BOLD);
+    renderer.clearScreen(THEME.backgroundColor);
+    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "End of book", THEME.primaryTextBlack, BOLD);
     renderer.displayBuffer();
     return;
   }
@@ -277,26 +278,26 @@ void EpubReaderActivity::renderScreen() {
 
       // Always show "Indexing..." text first
       {
-        renderer.fillRect(boxXNoBar, boxY, boxWidthNoBar, boxHeightNoBar, false);
-        renderer.drawText(fontId, boxXNoBar + boxMargin, boxY + boxMargin, "Indexing...");
-        renderer.drawRect(boxXNoBar + 5, boxY + 5, boxWidthNoBar - 10, boxHeightNoBar - 10);
+        renderer.fillRect(boxXNoBar, boxY, boxWidthNoBar, boxHeightNoBar, !THEME.primaryTextBlack);
+        renderer.drawText(fontId, boxXNoBar + boxMargin, boxY + boxMargin, "Indexing...", THEME.primaryTextBlack);
+        renderer.drawRect(boxXNoBar + 5, boxY + 5, boxWidthNoBar - 10, boxHeightNoBar - 10, THEME.primaryTextBlack);
         renderer.displayBuffer();
         pagesUntilFullRefresh = 0;
       }
 
       // Setup callback - only called for chapters >= 50KB, redraws with progress bar
       auto progressSetup = [this, fontId, boxXWithBar, boxWidthWithBar, boxHeightWithBar, barX, barY] {
-        renderer.fillRect(boxXWithBar, boxY, boxWidthWithBar, boxHeightWithBar, false);
-        renderer.drawText(fontId, boxXWithBar + boxMargin, boxY + boxMargin, "Indexing...");
-        renderer.drawRect(boxXWithBar + 5, boxY + 5, boxWidthWithBar - 10, boxHeightWithBar - 10);
-        renderer.drawRect(barX, barY, barWidth, barHeight);
+        renderer.fillRect(boxXWithBar, boxY, boxWidthWithBar, boxHeightWithBar, !THEME.primaryTextBlack);
+        renderer.drawText(fontId, boxXWithBar + boxMargin, boxY + boxMargin, "Indexing...", THEME.primaryTextBlack);
+        renderer.drawRect(boxXWithBar + 5, boxY + 5, boxWidthWithBar - 10, boxHeightWithBar - 10, THEME.primaryTextBlack);
+        renderer.drawRect(barX, barY, barWidth, barHeight, THEME.primaryTextBlack);
         renderer.displayBuffer();
       };
 
       // Progress callback to update progress bar
       auto progressCallback = [this, barX, barY, barWidth, barHeight](int progress) {
         const int fillWidth = (barWidth - 2) * progress / 100;
-        renderer.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2, true);
+        renderer.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2, THEME.primaryTextBlack);
         renderer.displayBuffer(EInkDisplay::FAST_REFRESH);
       };
 
@@ -305,8 +306,8 @@ void EpubReaderActivity::renderScreen() {
         Serial.printf("[%lu] [ERS] Failed to persist page data to SD\n", millis());
         section.reset();
         // Show error message to user
-        renderer.clearScreen();
-        renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Failed to load chapter", true, BOLD);
+        renderer.clearScreen(THEME.backgroundColor);
+        renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Failed to load chapter", THEME.primaryTextBlack, BOLD);
         renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
         renderer.displayBuffer();
         return;
@@ -322,7 +323,7 @@ void EpubReaderActivity::renderScreen() {
     }
   }
 
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
   if (section->pageCount == 0) {
     Serial.printf("[%lu] [ERS] No pages to render\n", millis());
@@ -334,7 +335,7 @@ void EpubReaderActivity::renderScreen() {
       return;
     }
 
-    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Empty chapter", true, BOLD);
+    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Empty chapter", THEME.primaryTextBlack, BOLD);
     renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     renderer.displayBuffer();
     return;
@@ -342,7 +343,7 @@ void EpubReaderActivity::renderScreen() {
 
   if (section->currentPage < 0 || section->currentPage >= section->pageCount) {
     Serial.printf("[%lu] [ERS] Page out of bounds: %d (max %d)\n", millis(), section->currentPage, section->pageCount);
-    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Out of bounds", true, BOLD);
+    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Out of bounds", THEME.primaryTextBlack, BOLD);
     renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     renderer.displayBuffer();
     return;
@@ -385,7 +386,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
   const int fontId = SETTINGS.getReaderFontId();
-  page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
+  page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop, THEME.primaryTextBlack);
   renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
   if (pagesUntilFullRefresh <= 1) {
     renderer.displayBuffer(EInkDisplay::HALF_REFRESH);
@@ -403,13 +404,13 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   {
     renderer.clearScreen(0x00);
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-    page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
+    page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop, THEME.primaryTextBlack);
     renderer.copyGrayscaleLsbBuffers();
 
     // Render and copy to MSB buffer
     renderer.clearScreen(0x00);
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-    page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
+    page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop, THEME.primaryTextBlack);
     renderer.copyGrayscaleMsbBuffers();
 
     // display grayscale part
@@ -426,7 +427,7 @@ void EpubReaderActivity::renderCoverPage(const int orientedMarginTop, const int 
   FsFile coverFile;
   if (!SdMan.openFileForRead("ERS", epub->getCoverBmpPath(), coverFile)) {
     Serial.printf("[%lu] [ERS] Failed to open cover BMP\n", millis());
-    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Cover unavailable", true, BOLD);
+    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Cover unavailable", THEME.primaryTextBlack, BOLD);
     renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     renderer.displayBuffer();
     return;
@@ -435,7 +436,7 @@ void EpubReaderActivity::renderCoverPage(const int orientedMarginTop, const int 
   Bitmap bitmap(coverFile);
   if (bitmap.parseHeaders() != BmpReaderError::Ok) {
     coverFile.close();
-    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Cover unavailable", true, BOLD);
+    renderer.drawCenteredText(SETTINGS.getReaderFontId(), 300, "Cover unavailable", THEME.primaryTextBlack, BOLD);
     renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     renderer.displayBuffer();
     return;
@@ -521,17 +522,17 @@ void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const in
     // Right aligned text for progress counter
     const std::string progress = std::to_string(section->currentPage + 1) + "/" + std::to_string(section->pageCount) +
                                  "  " + std::to_string(bookProgress) + "%";
-    progressTextWidth = renderer.getTextWidth(SMALL_FONT_ID, progress.c_str());
-    renderer.drawText(SMALL_FONT_ID, renderer.getScreenWidth() - orientedMarginRight - progressTextWidth, textY,
-                      progress.c_str());
+    progressTextWidth = renderer.getTextWidth(THEME.smallFontId, progress.c_str());
+    renderer.drawText(THEME.smallFontId, renderer.getScreenWidth() - orientedMarginRight - progressTextWidth, textY,
+                      progress.c_str(), THEME.primaryTextBlack);
   }
 
   if (showBattery) {
     // Left aligned battery icon and percentage
     const uint16_t percentage = battery.readPercentage();
     const auto percentageText = std::to_string(percentage) + "%";
-    percentageTextWidth = renderer.getTextWidth(SMALL_FONT_ID, percentageText.c_str());
-    renderer.drawText(SMALL_FONT_ID, 20 + orientedMarginLeft, textY, percentageText.c_str());
+    percentageTextWidth = renderer.getTextWidth(THEME.smallFontId, percentageText.c_str());
+    renderer.drawText(THEME.smallFontId, 20 + orientedMarginLeft, textY, percentageText.c_str(), THEME.primaryTextBlack);
 
     // 1 column on left, 2 columns on right, 5 columns of battery body
     constexpr int batteryWidth = 15;
@@ -540,23 +541,23 @@ void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const in
     const int y = screenHeight - orientedMarginBottom + 5;
 
     // Top line
-    renderer.drawLine(x, y, x + batteryWidth - 4, y);
+    renderer.drawLine(x, y, x + batteryWidth - 4, y, THEME.primaryTextBlack);
     // Bottom line
-    renderer.drawLine(x, y + batteryHeight - 1, x + batteryWidth - 4, y + batteryHeight - 1);
+    renderer.drawLine(x, y + batteryHeight - 1, x + batteryWidth - 4, y + batteryHeight - 1, THEME.primaryTextBlack);
     // Left line
-    renderer.drawLine(x, y, x, y + batteryHeight - 1);
+    renderer.drawLine(x, y, x, y + batteryHeight - 1, THEME.primaryTextBlack);
     // Battery end
-    renderer.drawLine(x + batteryWidth - 4, y, x + batteryWidth - 4, y + batteryHeight - 1);
-    renderer.drawLine(x + batteryWidth - 3, y + 2, x + batteryWidth - 1, y + 2);
-    renderer.drawLine(x + batteryWidth - 3, y + batteryHeight - 3, x + batteryWidth - 1, y + batteryHeight - 3);
-    renderer.drawLine(x + batteryWidth - 1, y + 2, x + batteryWidth - 1, y + batteryHeight - 3);
+    renderer.drawLine(x + batteryWidth - 4, y, x + batteryWidth - 4, y + batteryHeight - 1, THEME.primaryTextBlack);
+    renderer.drawLine(x + batteryWidth - 3, y + 2, x + batteryWidth - 1, y + 2, THEME.primaryTextBlack);
+    renderer.drawLine(x + batteryWidth - 3, y + batteryHeight - 3, x + batteryWidth - 1, y + batteryHeight - 3, THEME.primaryTextBlack);
+    renderer.drawLine(x + batteryWidth - 1, y + 2, x + batteryWidth - 1, y + batteryHeight - 3, THEME.primaryTextBlack);
 
     // The +1 is to round up, so that we always fill at least one pixel
     int filledWidth = percentage * (batteryWidth - 5) / 100 + 1;
     if (filledWidth > batteryWidth - 5) {
       filledWidth = batteryWidth - 5;  // Ensure we don't overflow
     }
-    renderer.fillRect(x + 1, y + 1, filledWidth, batteryHeight - 2);
+    renderer.fillRect(x + 1, y + 1, filledWidth, batteryHeight - 2, THEME.primaryTextBlack);
   }
 
   if (showChapterTitle) {
@@ -571,20 +572,20 @@ void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const in
     int titleWidth;
     if (tocIndex == -1) {
       title = "Unnamed";
-      titleWidth = renderer.getTextWidth(SMALL_FONT_ID, "Unnamed");
+      titleWidth = renderer.getTextWidth(THEME.smallFontId, "Unnamed");
     } else {
       const auto tocItem = epub->getTocItem(tocIndex);
       title = tocItem.title;
-      titleWidth = renderer.getTextWidth(SMALL_FONT_ID, title.c_str());
+      titleWidth = renderer.getTextWidth(THEME.smallFontId, title.c_str());
       while (titleWidth > availableTextWidth && title.length() > 11) {
         if (title.length() < 8) {
           break;  // Safety check to prevent underflow
         }
         title.replace(title.length() - 8, 8, "...");
-        titleWidth = renderer.getTextWidth(SMALL_FONT_ID, title.c_str());
+        titleWidth = renderer.getTextWidth(THEME.smallFontId, title.c_str());
       }
     }
 
-    renderer.drawText(SMALL_FONT_ID, titleMarginLeft + (availableTextWidth - titleWidth) / 2, textY, title.c_str());
+    renderer.drawText(THEME.smallFontId, titleMarginLeft + (availableTextWidth - titleWidth) / 2, textY, title.c_str(), THEME.primaryTextBlack);
   }
 }

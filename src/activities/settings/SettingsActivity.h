@@ -11,7 +11,7 @@
 
 class CrossPointSettings;
 
-enum class SettingType { TOGGLE, ENUM, ACTION };
+enum class SettingType { TOGGLE, ENUM, ACTION, THEME_SELECT };
 
 // Structure to hold setting information
 struct SettingInfo {
@@ -28,10 +28,15 @@ class SettingsActivity final : public ActivityWithSubactivity {
   int selectedSettingIndex = 0;  // Currently selected setting
   const std::function<void()> onGoHome;
 
+  // Theme selection state
+  std::vector<std::string> availableThemes;
+  int currentThemeIndex = 0;
+
   static void taskTrampoline(void* param);
   [[noreturn]] void displayTaskLoop();
   void render() const;
   void toggleCurrentSetting();
+  void loadAvailableThemes();
 
  public:
   explicit SettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,

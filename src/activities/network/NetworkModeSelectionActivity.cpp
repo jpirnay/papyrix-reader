@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 namespace {
@@ -91,16 +92,16 @@ void NetworkModeSelectionActivity::displayTaskLoop() {
 }
 
 void NetworkModeSelectionActivity::render() const {
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
   // Draw header
-  renderer.drawCenteredText(READER_FONT_ID, 10, "File Transfer", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "File Transfer", THEME.primaryTextBlack, BOLD);
 
   // Draw subtitle
-  renderer.drawCenteredText(UI_FONT_ID, 50, "How would you like to connect?", true, REGULAR);
+  renderer.drawCenteredText(THEME.uiFontId, 50, "How would you like to connect?", THEME.primaryTextBlack, REGULAR);
 
   // Draw menu items centered on screen
   constexpr int itemHeight = 50;  // Height for each menu item (including description)
@@ -110,20 +111,20 @@ void NetworkModeSelectionActivity::render() const {
     const int itemY = startY + i * itemHeight;
     const bool isSelected = (i == selectedIndex);
 
-    // Draw selection highlight (black fill) for selected item
+    // Draw selection highlight for selected item
     if (isSelected) {
-      renderer.fillRect(20, itemY - 2, pageWidth - 40, itemHeight - 6);
+      renderer.fillRect(20, itemY - 2, pageWidth - 40, itemHeight - 6, THEME.selectionFillBlack);
     }
 
-    // Draw text: black=false (white text) when selected (on black background)
-    //            black=true (black text) when not selected (on white background)
-    renderer.drawText(UI_FONT_ID, 30, itemY, MENU_ITEMS[i], /*black=*/!isSelected);
-    renderer.drawText(SMALL_FONT_ID, 30, itemY + 22, MENU_DESCRIPTIONS[i], /*black=*/!isSelected);
+    // Use selection text color when selected, primary text color otherwise
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
+    renderer.drawText(THEME.uiFontId, 30, itemY, MENU_ITEMS[i], textColor);
+    renderer.drawText(THEME.smallFontId, 30, itemY + 22, MENU_DESCRIPTIONS[i], textColor);
   }
 
   // Draw help text at bottom
   const auto labels = mappedInput.mapLabels("« Back", "Select", "", "");
-  renderer.drawButtonHints(UI_FONT_ID, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  renderer.drawButtonHints(THEME.uiFontId, labels.btn1, labels.btn2, labels.btn3, labels.btn4, THEME.primaryTextBlack);
 
   renderer.displayBuffer();
 }

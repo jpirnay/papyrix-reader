@@ -13,8 +13,10 @@ Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint
 
 ### Changes from Original
 
+- **Custom themes** - User-editable theme files on SD card (colors, layout, button mapping)
+- **Custom fonts** - Load external fonts from SD card (.epdfont format)
 - **Font size setting** - Added configurable font sizes (Small/Medium/Large)
-- **Redesigned home screen** - New 2x2 grid layout (or classic list view, configurable)
+- **Redesigned home screen** - New 2x2 grid layout (or list view via theme)
 - **Improved UI font** - Updated from Ubuntu 10pt to 12pt for better readability
 - **Better default font size** - Changed to 16pt Normal for comfortable reading
 - **Book cover display** - Show book cover as first page when reading (configurable)
@@ -50,9 +52,13 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 - [x] Wifi book upload
 - [ ] Wifi OTA updates
 - [x] Configurable font size options
+- [x] Custom themes (colors, layout, button mapping)
+- [x] Custom fonts from SD card
 - [ ] Screen rotation
 
-See [the user guide](./USER_GUIDE.md) for instructions on operating Papyrix.
+See [the user guide](docs/user_guide.md) for instructions on operating Papyrix.
+
+For themes and fonts customization, see the [customization guide](docs/customization.md).
 
 ## Installing
 

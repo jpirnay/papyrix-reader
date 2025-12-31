@@ -4,6 +4,7 @@
 #include <WiFi.h>
 
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "config.h"
 #include "network/OtaUpdater.h"
@@ -127,57 +128,57 @@ void OtaUpdateActivity::render() {
   const auto pageHeight = renderer.getScreenHeight();
   const auto pageWidth = renderer.getScreenWidth();
 
-  renderer.clearScreen();
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Update", true, BOLD);
+  renderer.clearScreen(THEME.backgroundColor);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Update", THEME.primaryTextBlack, BOLD);
 
   if (state == CHECKING_FOR_UPDATE) {
-    renderer.drawCenteredText(UI_FONT_ID, 300, "Checking for update...", true, BOLD);
+    renderer.drawCenteredText(THEME.uiFontId, 300, "Checking for update...", THEME.primaryTextBlack, BOLD);
     renderer.displayBuffer();
     return;
   }
 
   if (state == WAITING_CONFIRMATION) {
-    renderer.drawCenteredText(UI_FONT_ID, 200, "New update available!", true, BOLD);
-    renderer.drawText(UI_FONT_ID, 20, 250, "Current Version: " CROSSPOINT_VERSION);
-    renderer.drawText(UI_FONT_ID, 20, 270, ("New Version: " + updater.getLatestVersion()).c_str());
+    renderer.drawCenteredText(THEME.uiFontId, 200, "New update available!", THEME.primaryTextBlack, BOLD);
+    renderer.drawText(THEME.uiFontId, 20, 250, "Current Version: " CROSSPOINT_VERSION, THEME.primaryTextBlack);
+    renderer.drawText(THEME.uiFontId, 20, 270, ("New Version: " + updater.getLatestVersion()).c_str(), THEME.primaryTextBlack);
 
-    renderer.drawRect(25, pageHeight - 40, 106, 40);
-    renderer.drawText(UI_FONT_ID, 25 + (105 - renderer.getTextWidth(UI_FONT_ID, "Cancel")) / 2, pageHeight - 35,
-                      "Cancel");
+    renderer.drawRect(25, pageHeight - 40, 106, 40, THEME.primaryTextBlack);
+    renderer.drawText(THEME.uiFontId, 25 + (105 - renderer.getTextWidth(THEME.uiFontId, "Cancel")) / 2, pageHeight - 35,
+                      "Cancel", THEME.primaryTextBlack);
 
-    renderer.drawRect(130, pageHeight - 40, 106, 40);
-    renderer.drawText(UI_FONT_ID, 130 + (105 - renderer.getTextWidth(UI_FONT_ID, "Update")) / 2, pageHeight - 35,
-                      "Update");
+    renderer.drawRect(130, pageHeight - 40, 106, 40, THEME.primaryTextBlack);
+    renderer.drawText(THEME.uiFontId, 130 + (105 - renderer.getTextWidth(THEME.uiFontId, "Update")) / 2, pageHeight - 35,
+                      "Update", THEME.primaryTextBlack);
     renderer.displayBuffer();
     return;
   }
 
   if (state == UPDATE_IN_PROGRESS) {
-    renderer.drawCenteredText(UI_FONT_ID, 310, "Updating...", true, BOLD);
-    renderer.drawRect(20, 350, pageWidth - 40, 50);
-    renderer.fillRect(24, 354, static_cast<int>(updaterProgress * static_cast<float>(pageWidth - 44)), 42);
-    renderer.drawCenteredText(UI_FONT_ID, 420, (std::to_string(static_cast<int>(updaterProgress * 100)) + "%").c_str());
+    renderer.drawCenteredText(THEME.uiFontId, 310, "Updating...", THEME.primaryTextBlack, BOLD);
+    renderer.drawRect(20, 350, pageWidth - 40, 50, THEME.primaryTextBlack);
+    renderer.fillRect(24, 354, static_cast<int>(updaterProgress * static_cast<float>(pageWidth - 44)), 42, THEME.primaryTextBlack);
+    renderer.drawCenteredText(THEME.uiFontId, 420, (std::to_string(static_cast<int>(updaterProgress * 100)) + "%").c_str(), THEME.primaryTextBlack);
     renderer.drawCenteredText(
-        UI_FONT_ID, 440, (std::to_string(updater.processedSize) + " / " + std::to_string(updater.totalSize)).c_str());
+        THEME.uiFontId, 440, (std::to_string(updater.processedSize) + " / " + std::to_string(updater.totalSize)).c_str(), THEME.primaryTextBlack);
     renderer.displayBuffer();
     return;
   }
 
   if (state == NO_UPDATE) {
-    renderer.drawCenteredText(UI_FONT_ID, 300, "No update available", true, BOLD);
+    renderer.drawCenteredText(THEME.uiFontId, 300, "No update available", THEME.primaryTextBlack, BOLD);
     renderer.displayBuffer();
     return;
   }
 
   if (state == FAILED) {
-    renderer.drawCenteredText(UI_FONT_ID, 300, "Update failed", true, BOLD);
+    renderer.drawCenteredText(THEME.uiFontId, 300, "Update failed", THEME.primaryTextBlack, BOLD);
     renderer.displayBuffer();
     return;
   }
 
   if (state == FINISHED) {
-    renderer.drawCenteredText(UI_FONT_ID, 300, "Update complete", true, BOLD);
-    renderer.drawCenteredText(UI_FONT_ID, 350, "Press and hold power button to turn back on");
+    renderer.drawCenteredText(THEME.uiFontId, 300, "Update complete", THEME.primaryTextBlack, BOLD);
+    renderer.drawCenteredText(THEME.uiFontId, 350, "Press and hold power button to turn back on", THEME.primaryTextBlack);
     renderer.displayBuffer();
     state = SHUTTING_DOWN;
     return;

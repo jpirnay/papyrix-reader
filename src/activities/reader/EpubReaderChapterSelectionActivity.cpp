@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 namespace {
@@ -108,22 +109,24 @@ void EpubReaderChapterSelectionActivity::displayTaskLoop() {
 }
 
 void EpubReaderChapterSelectionActivity::renderScreen() {
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
   const auto pageWidth = renderer.getScreenWidth();
   const int pageItems = getPageItems();
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Select Chapter", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Select Chapter", THEME.primaryTextBlack, BOLD);
 
   const auto pageStartIndex = selectorIndex / pageItems * pageItems;
-  renderer.fillRect(0, 60 + (selectorIndex % pageItems) * 30 - 2, pageWidth - 1, 30);
+  renderer.fillRect(0, 60 + (selectorIndex % pageItems) * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);
   for (int i = pageStartIndex; i < epub->getSpineItemsCount() && i < pageStartIndex + pageItems; i++) {
     const int tocIndex = epub->getTocIndexForSpineIndex(i);
+    const bool isSelected = (i == selectorIndex);
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
     if (tocIndex == -1) {
-      renderer.drawText(UI_FONT_ID, 20, 60 + (i % pageItems) * 30, "Unnamed", i != selectorIndex);
+      renderer.drawText(THEME.uiFontId, 20, 60 + (i % pageItems) * THEME.itemHeight, "Unnamed", textColor);
     } else {
       auto item = epub->getTocItem(tocIndex);
-      renderer.drawText(UI_FONT_ID, 20 + (item.level - 1) * 15, 60 + (i % pageItems) * 30, item.title.c_str(),
-                        i != selectorIndex);
+      renderer.drawText(THEME.uiFontId, 20 + (item.level - 1) * 15, 60 + (i % pageItems) * THEME.itemHeight, item.title.c_str(),
+                        textColor);
     }
   }
 

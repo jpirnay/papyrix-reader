@@ -10,6 +10,7 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "ThemeManager.h"
 #include "config.h"
 #include "images/PapyrixLogo.h"
 
@@ -43,16 +44,16 @@ void SleepActivity::onEnter() {
 }
 
 void SleepActivity::renderPopup(const char* message) const {
-  const int textWidth = renderer.getTextWidth(READER_FONT_ID, message);
+  const int textWidth = renderer.getTextWidth(THEME.readerFontId, message);
   constexpr int margin = 20;
   const int x = (renderer.getScreenWidth() - textWidth - margin * 2) / 2;
   constexpr int y = 117;
   const int w = textWidth + margin * 2;
-  const int h = renderer.getLineHeight(READER_FONT_ID) + margin * 2;
+  const int h = renderer.getLineHeight(THEME.readerFontId) + margin * 2;
   // renderer.clearScreen();
-  renderer.fillRect(x + 5, y + 5, w - 10, h - 10, false);
-  renderer.drawText(READER_FONT_ID, x + margin, y + margin, message);
-  renderer.drawRect(x + 5, y + 5, w - 10, h - 10);
+  renderer.fillRect(x + 5, y + 5, w - 10, h - 10, !THEME.primaryTextBlack);
+  renderer.drawText(THEME.readerFontId, x + margin, y + margin, message, THEME.primaryTextBlack);
+  renderer.drawRect(x + 5, y + 5, w - 10, h - 10, THEME.primaryTextBlack);
   renderer.displayBuffer();
 }
 
@@ -128,10 +129,10 @@ void SleepActivity::renderDefaultSleepScreen() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
   renderer.drawImage(PapyrixLogo, (pageWidth + 128) / 2, (pageHeight - 128) / 2, 128, 128);
-  renderer.drawCenteredText(UI_FONT_ID, pageHeight / 2 + 70, "Papyrix", true, BOLD);
-  renderer.drawCenteredText(SMALL_FONT_ID, pageHeight / 2 + 110, "SLEEPING");
+  renderer.drawCenteredText(THEME.uiFontId, pageHeight / 2 + 70, "Papyrix", THEME.primaryTextBlack, BOLD);
+  renderer.drawCenteredText(THEME.smallFontId, pageHeight / 2 + 110, "SLEEPING", THEME.primaryTextBlack);
 
   // Make sleep screen dark unless light is selected in settings
   if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT) {

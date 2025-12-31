@@ -32,11 +32,6 @@ class CrossPointSettings {
 
   enum FONT_SIZE { FONT_SMALL = 0, FONT_MEDIUM = 1, FONT_LARGE = 2 };
 
-  // Front button layout options
-  // Default: Back, Confirm, Left, Right
-  // Swapped: Left, Right, Back, Confirm
-  enum FRONT_BUTTON_LAYOUT { BACK_CONFIRM_LEFT_RIGHT = 0, LEFT_RIGHT_BACK_CONFIRM = 1 };
-
   // Side button layout options
   // Default: Previous, Next
   // Swapped: Next, Previous
@@ -44,9 +39,6 @@ class CrossPointSettings {
 
   // Sleep timeout options (in minutes)
   enum SLEEP_TIMEOUT { SLEEP_5_MIN = 0, SLEEP_10_MIN = 1, SLEEP_15_MIN = 2, SLEEP_30_MIN = 3 };
-
-  // Home screen layout options
-  enum HOME_LAYOUT { HOME_GRID = 0, HOME_LIST = 1 };
 
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
@@ -62,16 +54,14 @@ class CrossPointSettings {
   // Font size for reading
   // 0 = small (14pt), 1 = normal (16pt, default), 2 = large (18pt)
   uint8_t fontSize = FONT_MEDIUM;
-  // Front button layout
-  uint8_t frontButtonLayout = BACK_CONFIRM_LEFT_RIGHT;
   // Side button layout
   uint8_t sideButtonLayout = PREV_NEXT;
   // Show book cover as first page when reading
   uint8_t showBookCover = 1;
   // Auto-sleep timeout setting
   uint8_t sleepTimeout = SLEEP_10_MIN;
-  // Home screen layout (grid or list)
-  uint8_t homeLayout = HOME_GRID;
+  // Theme name (loaded from /themes/<name>.theme)
+  char themeName[32] = "light";
 
   ~CrossPointSettings() = default;
 

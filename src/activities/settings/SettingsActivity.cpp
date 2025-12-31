@@ -5,12 +5,15 @@
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "OtaUpdateActivity.h"
+#include "ThemeManager.h"
 #include "config.h"
 
 // Define the static settings list
 namespace {
-constexpr int settingsCount = 11;
+constexpr int settingsCount = 10;
 const SettingInfo settingsList[settingsCount] = {
+    // Theme selection (special type - handled dynamically)
+    {"Theme", SettingType::THEME_SELECT, nullptr, {}},
     // Should match with SLEEP_SCREEN_MODE
     {"Sleep Screen", SettingType::ENUM, &CrossPointSettings::sleepScreen, {"Dark", "Light", "Custom", "Cover"}},
     {"Status Bar", SettingType::ENUM, &CrossPointSettings::statusBar, {"None", "No Progress", "Full"}},
@@ -23,14 +26,8 @@ const SettingInfo settingsList[settingsCount] = {
      SettingType::ENUM,
      &CrossPointSettings::orientation,
      {"Portrait", "Landscape CW", "Inverted", "Landscape CCW"}},
-    {"Front Button Layout",
-     SettingType::ENUM,
-     &CrossPointSettings::frontButtonLayout,
-     {"B C L R", "L R B C"}},
     // Should match with SLEEP_TIMEOUT
     {"Sleep Timeout", SettingType::ENUM, &CrossPointSettings::sleepTimeout, {"5 min", "10 min", "15 min", "30 min"}},
-    // Should match with HOME_LAYOUT
-    {"Home Layout", SettingType::ENUM, &CrossPointSettings::homeLayout, {"Grid", "List"}},
     {"Check for updates", SettingType::ACTION, nullptr, {}},
 };
 }  // namespace
@@ -48,6 +45,9 @@ void SettingsActivity::onEnter() {
   // Reset selection to first item
   selectedSettingIndex = 0;
 
+  // Load available themes
+  loadAvailableThemes();
+
   // Trigger first update
   updateRequired = true;
 
@@ -57,6 +57,20 @@ void SettingsActivity::onEnter() {
               1,                  // Priority
               &displayTaskHandle  // Task handle
   );
+}
+
+void SettingsActivity::loadAvailableThemes() {
+  availableThemes = THEME_MANAGER.listAvailableThemes();
+
+  // Find current theme index
+  currentThemeIndex = 0;
+  const char* currentTheme = SETTINGS.themeName;
+  for (size_t i = 0; i < availableThemes.size(); i++) {
+    if (availableThemes[i] == currentTheme) {
+      currentThemeIndex = static_cast<int>(i);
+      break;
+    }
+  }
 }
 
 void SettingsActivity::onExit() {
@@ -122,6 +136,16 @@ void SettingsActivity::toggleCurrentSetting() {
   } else if (setting.type == SettingType::ENUM && setting.valuePtr != nullptr) {
     const uint8_t currentValue = SETTINGS.*(setting.valuePtr);
     SETTINGS.*(setting.valuePtr) = (currentValue + 1) % static_cast<uint8_t>(setting.enumValues.size());
+  } else if (setting.type == SettingType::THEME_SELECT) {
+    // Cycle through available themes
+    if (!availableThemes.empty()) {
+      currentThemeIndex = (currentThemeIndex + 1) % static_cast<int>(availableThemes.size());
+      const std::string& newTheme = availableThemes[currentThemeIndex];
+      strncpy(SETTINGS.themeName, newTheme.c_str(), sizeof(SETTINGS.themeName) - 1);
+      SETTINGS.themeName[sizeof(SETTINGS.themeName) - 1] = '\0';
+      // Apply the theme immediately
+      THEME_MANAGER.loadTheme(SETTINGS.themeName);
+    }
   } else if (setting.type == SettingType::ACTION) {
     if (std::string(setting.name) == "Check for updates") {
       xSemaphoreTake(renderingMutex, portMAX_DELAY);
@@ -154,28 +178,30 @@ void SettingsActivity::displayTaskLoop() {
 }
 
 void SettingsActivity::render() const {
-  renderer.clearScreen();
+  renderer.clearScreen(THEME.backgroundColor);
 
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
   // Draw header
-  renderer.drawCenteredText(READER_FONT_ID, 10, "Settings", true, BOLD);
+  renderer.drawCenteredText(THEME.readerFontId, 10, "Settings", THEME.primaryTextBlack, BOLD);
 
-  // Draw selection
-  renderer.fillRect(0, 60 + selectedSettingIndex * 30 - 2, pageWidth - 1, 30);
+  // Draw selection highlight
+  renderer.fillRect(0, 60 + selectedSettingIndex * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);
 
   // Draw all settings
   for (int i = 0; i < settingsCount; i++) {
-    const int settingY = 60 + i * 30;  // 30 pixels between settings
+    const int settingY = 60 + i * THEME.itemHeight;
+    const bool isSelected = (i == selectedSettingIndex);
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
 
     // Draw selection indicator for the selected setting
-    if (i == selectedSettingIndex) {
-      renderer.drawText(UI_FONT_ID, 5, settingY, ">");
+    if (isSelected) {
+      renderer.drawText(THEME.uiFontId, 5, settingY, ">", textColor);
     }
 
     // Draw setting name
-    renderer.drawText(UI_FONT_ID, 20, settingY, settingsList[i].name, i != selectedSettingIndex);
+    renderer.drawText(THEME.uiFontId, 20, settingY, settingsList[i].name, textColor);
 
     // Draw value based on setting type
     std::string valueText = "";
@@ -185,18 +211,21 @@ void SettingsActivity::render() const {
     } else if (settingsList[i].type == SettingType::ENUM && settingsList[i].valuePtr != nullptr) {
       const uint8_t value = SETTINGS.*(settingsList[i].valuePtr);
       valueText = settingsList[i].enumValues[value];
+    } else if (settingsList[i].type == SettingType::THEME_SELECT) {
+      // Show current theme name
+      valueText = SETTINGS.themeName;
     }
-    const auto width = renderer.getTextWidth(UI_FONT_ID, valueText.c_str());
-    renderer.drawText(UI_FONT_ID, pageWidth - 20 - width, settingY, valueText.c_str(), i != selectedSettingIndex);
+    const auto width = renderer.getTextWidth(THEME.uiFontId, valueText.c_str());
+    renderer.drawText(THEME.uiFontId, pageWidth - 20 - width, settingY, valueText.c_str(), textColor);
   }
 
   // Draw version text above button hints
-  renderer.drawText(SMALL_FONT_ID, pageWidth - 20 - renderer.getTextWidth(SMALL_FONT_ID, CROSSPOINT_VERSION),
-                    pageHeight - 60, CROSSPOINT_VERSION);
+  renderer.drawText(THEME.smallFontId, pageWidth - 20 - renderer.getTextWidth(THEME.smallFontId, CROSSPOINT_VERSION),
+                    pageHeight - 60, CROSSPOINT_VERSION, THEME.primaryTextBlack);
 
   // Draw help text
   const auto labels = mappedInput.mapLabels("« Save", "Toggle", "", "");
-  renderer.drawButtonHints(UI_FONT_ID, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  renderer.drawButtonHints(THEME.uiFontId, labels.btn1, labels.btn2, labels.btn3, labels.btn4, THEME.primaryTextBlack);
 
   // Always use standard refresh for settings screen
   renderer.displayBuffer();

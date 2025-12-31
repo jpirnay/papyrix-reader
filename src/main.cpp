@@ -26,7 +26,9 @@
 #include "Battery.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "FontManager.h"
 #include "MappedInputManager.h"
+#include "ThemeManager.h"
 #include "activities/boot_sleep/BootActivity.h"
 #include "activities/boot_sleep/SleepActivity.h"
 #include "activities/home/HomeActivity.h"
@@ -223,6 +225,12 @@ void setup() {
   }
 
   SETTINGS.loadFromFile();
+
+  // Initialize theme and font managers
+  FONT_MANAGER.init(renderer);
+  THEME_MANAGER.loadTheme(SETTINGS.themeName);
+  THEME_MANAGER.createDefaultThemeFiles();  // Create template files if missing
+  Serial.printf("[%lu] [   ] Theme loaded: %s\n", millis(), THEME_MANAGER.currentThemeName());
 
   // verify power button press duration after we've read settings.
   verifyWakeupLongPress();

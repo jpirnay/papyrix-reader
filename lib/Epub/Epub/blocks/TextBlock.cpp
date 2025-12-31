@@ -3,7 +3,8 @@
 #include <GfxRenderer.h>
 #include <Serialization.h>
 
-void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int x, const int y) const {
+void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int x, const int y,
+                       const bool black) const {
   // Validate iterator bounds before rendering
   if (words.size() != wordXpos.size() || words.size() != wordStyles.size()) {
     Serial.printf("[%lu] [TXB] Render skipped: size mismatch (words=%u, xpos=%u, styles=%u)\n", millis(),
@@ -16,7 +17,7 @@ void TextBlock::render(const GfxRenderer& renderer, const int fontId, const int 
   auto wordXposIt = wordXpos.begin();
 
   for (size_t i = 0; i < words.size(); i++) {
-    renderer.drawText(fontId, *wordXposIt + x, y, wordIt->c_str(), true, *wordStylesIt);
+    renderer.drawText(fontId, *wordXposIt + x, y, wordIt->c_str(), black, *wordStylesIt);
 
     std::advance(wordIt, 1);
     std::advance(wordStylesIt, 1);

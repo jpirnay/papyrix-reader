@@ -33,6 +33,8 @@ Upon turning the device on for the first time, you will be placed on the **Home*
 
 ### 3.1 Home Screen
 
+![Home Screen](images/home-screen.jpg)
+
 The Home Screen displays the app title "Papyrix Reader" at the top with a **battery indicator** in the top-right corner.
 
 #### Book Card
@@ -53,6 +55,8 @@ Below the book card are two bordered menu items:
 
 ### 3.2 Book Selection (Files)
 
+![File Browser](images/file-browser.jpg)
+
 The Files screen acts as a folder and file browser.
 
 * **Navigate List:** Use **Left** (or **Volume Up**), or **Right** (or **Volume Down**) to move the selection cursor up
@@ -65,9 +69,13 @@ The Files screen acts as a folder and file browser.
 
 ### 3.3 Reading Screen
 
+![Reading View](images/reading-view.jpg)
+
 See [4. Reading Mode](#4-reading-mode) below for more information.
 
 ### 3.4 File Transfer
+
+![File Transfer](images/file-transfer.jpg)
 
 File transfer is accessible from **Settings > File transfer**. This allows you to upload new e-books to the device over WiFi.
 
@@ -76,12 +84,16 @@ When you enter the screen, you'll be prompted to choose a network mode:
 * **Join Network:** Connect to an existing WiFi network. You'll see a list of available networks and can enter passwords as needed. Previously saved networks will connect automatically.
 * **Create Hotspot:** The X4 creates its own WiFi network that you can connect to directly from your computer or phone.
 
+![On-screen Keyboard](images/keyboard.jpg)
+
 Once connected, your X4 will start hosting a web server. See the [webserver docs](webserver.md) for more
 information on how to connect and upload files.
 
 > **Note:** When you exit File Transfer, the device will automatically restart to reclaim memory used by WiFi.
 
 ### 3.5 Settings
+
+![Settings](images/settings.jpg)
 
 The Settings screen allows you to configure the device's behavior:
 
@@ -136,6 +148,8 @@ The Settings screen allows you to configure the device's behavior:
 
 ### 3.6 Sleep Screen
 
+![Sleep Screen](images/sleep-screen.jpg)
+
 You can customize the sleep screen by placing custom images in specific locations on the SD card:
 
 - **Single Image:** Place a file named `sleep.bmp` in the root directory.
@@ -183,6 +197,8 @@ Once you have opened a book, the button layout changes to facilitate reading.
 ---
 
 ## 5. Chapter Selection Screen
+
+![Table of Contents](images/table-of-contents.jpg)
 
 Accessible by pressing **Confirm** while inside a book. The screen header displays the book title.
 

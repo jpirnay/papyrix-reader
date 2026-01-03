@@ -83,11 +83,19 @@ void OpdsServerListActivity::render() const {
     return;
   }
 
-  // Draw selection highlight and list (exactly like FileSelectionActivity)
+  // Draw selection highlight and list
   renderer.fillRect(0, 60 + selectedIndex * THEME.itemHeight - 2, pageWidth - 1, THEME.itemHeight, THEME.selectionFillBlack);
   for (size_t i = 0; i < serverNames.size(); i++) {
-    const bool textColor = (static_cast<int>(i) == selectedIndex) ? THEME.selectionTextBlack : THEME.primaryTextBlack;
-    renderer.drawText(THEME.uiFontId, 20, 60 + static_cast<int>(i) * THEME.itemHeight, serverNames[i].c_str(), textColor);
+    const int itemY = 60 + static_cast<int>(i) * THEME.itemHeight;
+    const bool isSelected = (static_cast<int>(i) == selectedIndex);
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
+
+    // Draw selection indicator (matching Settings view style)
+    if (isSelected) {
+      renderer.drawText(THEME.uiFontId, 5, itemY, ">", textColor);
+    }
+
+    renderer.drawText(THEME.uiFontId, 20, itemY, serverNames[i].c_str(), textColor);
   }
 
   renderer.displayBuffer();

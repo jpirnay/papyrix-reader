@@ -60,7 +60,7 @@ char KeyboardEntryActivity::getSelectedChar() const {
 }
 
 void KeyboardEntryActivity::handleKeyPress() {
-  // Handle control row (row 8: SPACE, BACKSPACE)
+  // Handle control row (row 0: SPACE, BACKSPACE, CONFIRM)
   if (selectedRow == CONTROL_ROW) {
     if (selectedCol >= SPACE_START && selectedCol <= SPACE_END) {
       // Space bar
@@ -74,6 +74,14 @@ void KeyboardEntryActivity::handleKeyPress() {
       // Backspace
       if (!text.empty()) {
         text.pop_back();
+      }
+      return;
+    }
+
+    if (selectedCol >= CONFIRM_START && selectedCol <= CONFIRM_END) {
+      // Confirm - submit the text
+      if (onComplete) {
+        onComplete(text);
       }
       return;
     }
@@ -96,6 +104,16 @@ void KeyboardEntryActivity::loop() {
   if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
     if (selectedRow > 0) {
       selectedRow--;
+      // When entering control row (row 0), snap to nearest control key
+      if (selectedRow == CONTROL_ROW) {
+        if (selectedCol <= BACKSPACE_END) {
+          selectedCol = (BACKSPACE_START + BACKSPACE_END) / 2;  // Center of BACKSPACE
+        } else if (selectedCol <= SPACE_END) {
+          selectedCol = (SPACE_START + SPACE_END) / 2;  // Center of SPACE
+        } else {
+          selectedCol = (CONFIRM_START + CONFIRM_END) / 2;  // Center of CONFIRM
+        }
+      }
     }
     updateRequired = true;
   }
@@ -104,31 +122,26 @@ void KeyboardEntryActivity::loop() {
   if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
     if (selectedRow < NUM_ROWS - 1) {
       selectedRow++;
-      // When entering control row, snap to nearest control key
-      if (selectedRow == CONTROL_ROW) {
-        if (selectedCol <= SPACE_END) {
-          selectedCol = (SPACE_START + SPACE_END) / 2;  // Center of SPACE
-        } else {
-          selectedCol = (BACKSPACE_START + BACKSPACE_END) / 2;  // Center of BACKSPACE
-        }
-      }
     }
     updateRequired = true;
   }
 
   // Navigation - Left
   if (mappedInput.wasPressed(MappedInputManager::Button::Left)) {
-    // Control row: snap between SPACE and BACKSPACE
+    // Control row: snap between BACKSPACE, SPACE, CONFIRM
     if (selectedRow == CONTROL_ROW) {
-      if (selectedCol >= BACKSPACE_START) {
-        selectedCol = (SPACE_START + SPACE_END) / 2;
+      if (selectedCol >= CONFIRM_START) {
+        selectedCol = (SPACE_START + SPACE_END) / 2;  // Go to SPACE
+      } else if (selectedCol >= SPACE_START) {
+        selectedCol = (BACKSPACE_START + BACKSPACE_END) / 2;  // Go to BACKSPACE
       }
-      // If already on SPACE, stay there
+      // If already on BACKSPACE, stay there
     } else {
       // Regular rows: standard grid navigation with wrap
       if (selectedCol > 0) {
         selectedCol--;
-      } else if (selectedRow > 0) {
+      } else if (selectedRow > 1) {
+        // Wrap to previous row (but not into control row)
         selectedRow--;
         selectedCol = KEYS_PER_ROW - 1;
       }
@@ -138,23 +151,22 @@ void KeyboardEntryActivity::loop() {
 
   // Navigation - Right
   if (mappedInput.wasPressed(MappedInputManager::Button::Right)) {
-    // Control row: snap between SPACE and BACKSPACE
+    // Control row: snap between BACKSPACE, SPACE, CONFIRM
     if (selectedRow == CONTROL_ROW) {
-      if (selectedCol <= SPACE_END) {
-        selectedCol = (BACKSPACE_START + BACKSPACE_END) / 2;
+      if (selectedCol <= BACKSPACE_END) {
+        selectedCol = (SPACE_START + SPACE_END) / 2;  // Go to SPACE
+      } else if (selectedCol <= SPACE_END) {
+        selectedCol = (CONFIRM_START + CONFIRM_END) / 2;  // Go to CONFIRM
       }
-      // If already on BACKSPACE, stay there
+      // If already on CONFIRM, stay there
     } else {
       // Regular rows: standard grid navigation with wrap
       if (selectedCol < KEYS_PER_ROW - 1) {
         selectedCol++;
       } else if (selectedRow < NUM_ROWS - 1) {
+        // Wrap to next row
         selectedRow++;
         selectedCol = 0;
-        // When entering control row via wrap, start at SPACE
-        if (selectedRow == CONTROL_ROW) {
-          selectedCol = (SPACE_START + SPACE_END) / 2;
-        }
       }
     }
     updateRequired = true;
@@ -228,7 +240,7 @@ void KeyboardEntryActivity::render() const {
   const int leftMargin = buttonAreaLeft;
 
   // Calculate total keyboard height
-  // 9 regular rows + 1 control row + 3 separators (no zone labels)
+  // 1 control row + 9 regular rows + 3 separators (after control, lowercase, uppercase)
   constexpr int regularRowsHeight = 9 * (keyHeight + keySpacingV);
   constexpr int controlRowHeight = keyHeight + keySpacingV;
   constexpr int separatorsHeight = 3 * separatorHeight;
@@ -244,33 +256,43 @@ void KeyboardEntryActivity::render() const {
   const int contentStartX = leftMargin + borderPadding;
 
   // Zone separator positions (draw after these rows)
-  const int zoneSeparatorAfterRows[] = {2, 5, 8};
+  // Row 0: controls, Row 1-3: lowercase, Row 4-6: uppercase, Row 7-9: numbers/symbols
+  const int zoneSeparatorAfterRows[] = {0, 3, 6};
   int zoneIndex = 0;
 
   for (int row = 0; row < NUM_ROWS; row++) {
     const int rowY = currentY;
 
-    // Handle control row (row 8) specially
+    // Handle control row (row 0) specially
     if (row == CONTROL_ROW) {
-      // Draw 2 control buttons: SPACE, BACKSPACE (<-)
+      // Draw 3 control buttons: Backspace, Space, Confirm
       int currentX = contentStartX;
 
-      // SPACE button (cols 0-5, 6 keys wide)
-      const int spaceWidth = 6 * keyWidth + 5 * keySpacingH;
+      // Backspace button (cols 0-2, 3 keys wide)
+      const int bsWidth = 3 * keyWidth + 2 * keySpacingH;
+      const bool bsSelected = (selectedRow == CONTROL_ROW && selectedCol >= BACKSPACE_START && selectedCol <= BACKSPACE_END);
+      const char* bsLabel = "Backspace";
+      const int bsTextWidth = renderer.getTextWidth(THEME.uiFontId, bsLabel);
+      const int bsTextX = currentX + (bsWidth - bsTextWidth) / 2;
+      renderItemWithSelector(bsTextX, rowY, bsLabel, bsSelected);
+      currentX += bsWidth + keySpacingH;
+
+      // Space button (cols 3-6, 4 keys wide)
+      const int spaceWidth = 4 * keyWidth + 3 * keySpacingH;
       const bool spaceSelected = (selectedRow == CONTROL_ROW && selectedCol >= SPACE_START && selectedCol <= SPACE_END);
-      const char* spaceLabel = "SPACE";
+      const char* spaceLabel = "Space";
       const int spaceTextWidth = renderer.getTextWidth(THEME.uiFontId, spaceLabel);
       const int spaceTextX = currentX + (spaceWidth - spaceTextWidth) / 2;
       renderItemWithSelector(spaceTextX, rowY, spaceLabel, spaceSelected);
       currentX += spaceWidth + keySpacingH;
 
-      // BACKSPACE button (cols 6-9, 4 keys wide)
-      const int bsWidth = 4 * keyWidth + 3 * keySpacingH;
-      const bool bsSelected = (selectedRow == CONTROL_ROW && selectedCol >= BACKSPACE_START && selectedCol <= BACKSPACE_END);
-      const char* bsLabel = "<-";
-      const int bsTextWidth = renderer.getTextWidth(THEME.uiFontId, bsLabel);
-      const int bsTextX = currentX + (bsWidth - bsTextWidth) / 2;
-      renderItemWithSelector(bsTextX, rowY, bsLabel, bsSelected);
+      // Confirm button (cols 7-9, 3 keys wide)
+      const int confirmWidth = 3 * keyWidth + 2 * keySpacingH;
+      const bool confirmSelected = (selectedRow == CONTROL_ROW && selectedCol >= CONFIRM_START && selectedCol <= CONFIRM_END);
+      const char* confirmLabel = "Confirm";
+      const int confirmTextWidth = renderer.getTextWidth(THEME.uiFontId, confirmLabel);
+      const int confirmTextX = currentX + (confirmWidth - confirmTextWidth) / 2;
+      renderItemWithSelector(confirmTextX, rowY, confirmLabel, confirmSelected);
     } else {
       // Regular rows: render each key
       for (int col = 0; col < KEYS_PER_ROW; col++) {

@@ -1,5 +1,6 @@
 #include "FileSelectionActivity.h"
 
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <SDCardManager.h>
 
@@ -12,14 +13,9 @@ constexpr int PAGE_ITEMS = 23;
 constexpr int SKIP_PAGE_MS = 700;
 constexpr unsigned long GO_HOME_MS = 1000;
 
-const char* HIDDEN_DIRS[] = {"System Volume Information", "LOST.DIR", "$RECYCLE.BIN", "themes", "XTCache"};
-constexpr size_t HIDDEN_DIRS_COUNT = sizeof(HIDDEN_DIRS) / sizeof(HIDDEN_DIRS[0]);
-
 bool isHiddenName(const char* name) {
   if (name[0] == '.') return true;
-  for (size_t i = 0; i < HIDDEN_DIRS_COUNT; i++) {
-    if (strcmp(name, HIDDEN_DIRS[i]) == 0) return true;
-  }
+  if (FsHelpers::isHiddenFsItem(name)) return true;
   if (strncmp(name, "FOUND.", 6) == 0) return true;
   return false;
 }

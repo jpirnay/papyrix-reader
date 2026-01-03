@@ -10,12 +10,6 @@
 #include "html/FilesPageHtml.generated.h"
 #include "html/HomePageHtml.generated.h"
 
-namespace {
-// Folders/files to hide from the web interface file browser
-// Note: Items starting with "." are automatically hidden
-const char* HIDDEN_ITEMS[] = {"System Volume Information", "LOST.DIR", "$RECYCLE.BIN", "themes", "XTCache"};
-constexpr size_t HIDDEN_ITEMS_COUNT = sizeof(HIDDEN_ITEMS) / sizeof(HIDDEN_ITEMS[0]);
-}  // namespace
 
 // Static variables for upload handling (declared early so stop() can clear them)
 static FsFile uploadFile;
@@ -201,18 +195,8 @@ void CrossPointWebServer::scanFiles(const char* path, const std::function<void(F
     file.getName(name, sizeof(name));
     auto fileName = String(name);
 
-    // Skip hidden items (starting with ".")
-    bool shouldHide = fileName.startsWith(".");
-
-    // Check against explicitly hidden items list
-    if (!shouldHide) {
-      for (size_t i = 0; i < HIDDEN_ITEMS_COUNT; i++) {
-        if (fileName.equals(HIDDEN_ITEMS[i])) {
-          shouldHide = true;
-          break;
-        }
-      }
-    }
+    // Skip hidden items (starting with "." or in protected list)
+    bool shouldHide = fileName.startsWith(".") || FsHelpers::isHiddenFsItem(fileName.c_str());
 
     if (!shouldHide) {
       FileInfo info;
@@ -496,12 +480,10 @@ void CrossPointWebServer::handleDelete() const {
   }
 
   // Check against explicitly protected items
-  for (size_t i = 0; i < HIDDEN_ITEMS_COUNT; i++) {
-    if (itemName.equals(HIDDEN_ITEMS[i])) {
-      Serial.printf("[%lu] [WEB] Delete rejected - protected item: %s\n", millis(), itemPath.c_str());
-      server->send(403, "text/plain", "Cannot delete protected items");
-      return;
-    }
+  if (FsHelpers::isHiddenFsItem(itemName.c_str())) {
+    Serial.printf("[%lu] [WEB] Delete rejected - protected item: %s\n", millis(), itemPath.c_str());
+    server->send(403, "text/plain", "Cannot delete protected items");
+    return;
   }
 
   // Check if item exists

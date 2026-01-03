@@ -1,6 +1,21 @@
 #include "FsHelpers.h"
 
+#include <cstring>
 #include <vector>
+
+namespace {
+// Folders/files to hide from file browsers (UI and web interface)
+const char* HIDDEN_FS_ITEMS[] = {
+    "System Volume Information", "LOST.DIR", "$RECYCLE.BIN", "themes", "XTCache"};
+constexpr size_t HIDDEN_FS_ITEMS_COUNT = sizeof(HIDDEN_FS_ITEMS) / sizeof(HIDDEN_FS_ITEMS[0]);
+}  // namespace
+
+bool FsHelpers::isHiddenFsItem(const char* name) {
+  for (size_t i = 0; i < HIDDEN_FS_ITEMS_COUNT; i++) {
+    if (strcmp(name, HIDDEN_FS_ITEMS[i]) == 0) return true;
+  }
+  return false;
+}
 
 std::string FsHelpers::normalisePath(const std::string& path) {
   std::vector<std::string> components;

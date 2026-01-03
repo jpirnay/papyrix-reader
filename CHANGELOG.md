@@ -1,5 +1,16 @@
 
 
+## v0.7.3 (2026-01-04)
+
+*  Update CHANGELOG [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v0.7.2 (2026-01-04)
+
+*  Fix OPDS crash on large feeds by streaming HTTP to parser [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add OPDS catalog search by keyword [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v0.7.0 (2026-01-03)
 
 

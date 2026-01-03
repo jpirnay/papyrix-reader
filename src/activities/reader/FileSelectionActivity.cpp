@@ -188,7 +188,8 @@ void FileSelectionActivity::render() const {
   renderer.drawCenteredText(THEME.readerFontId, 10, "Books", THEME.primaryTextBlack, BOLD);
 
   // Help text
-  const auto labels = mappedInput.mapLabels("Home", "Open", "", "");
+  const char* backLabel = (basepath == "/") ? "Home" : "Back";
+  const auto labels = mappedInput.mapLabels(backLabel, "Open", "", "");
   renderer.drawButtonHints(THEME.uiFontId, labels.btn1, labels.btn2, labels.btn3, labels.btn4, THEME.primaryTextBlack);
 
   if (files.empty()) {

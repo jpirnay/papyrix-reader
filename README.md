@@ -18,25 +18,6 @@ Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint
 
 **Papyrix** (from "papyrus" - ancient scrolls) is a community fork with the goal of providing a lighter, more user-friendly firmware version while maintaining full compatibility with the original CrossPoint Reader.
 
-### Changes from Original
-
-- **Custom themes** - User-editable theme files on SD card (colors, layout, button mapping)
-- **Custom fonts** - Load external fonts from SD card (.epdfont format)
-- **Font size setting** - Added configurable font sizes (Small/Medium/Large)
-- **Redesigned home screen** - Book card template with current book info, Files, and Settings
-- **Improved UI font** - Updated from Ubuntu 10pt to 12pt for better readability
-- **Better default font size** - Changed to 16pt Normal for comfortable reading
-- **Book cover display** - Show book cover as first page when reading (configurable)
-- **Sleep timeout setting** - Configurable auto-sleep timeout (5/10/15/30 min)
-- **Pages per refresh setting** - Control e-paper full refresh frequency (1/5/10/15/30 pages)
-- **Paragraph alignment setting** - Configurable text alignment (Justified/Left/Center/Right)
-- **Hyphenation support** - Break long words at soft hyphen positions for better text layout
-- **UTF-8 filename support** - Cyrillic and other non-ASCII characters in file names
-- **EPUB 3 support** - Native navigation document (nav.xhtml) parsing with NCX fallback
-- **Hidden system folders** - Filters LOST.DIR, $RECYCLE.BIN, etc. from file browser
-- **Net Library (OPDS)** - Browse and download books from OPDS-compatible servers over WiFi (Project Gutenberg preconfigured; add more via `/config/opds.ini`)
-- **Calibre Wireless Device** - Send books directly from Calibre desktop via WiFi using the wireless device connection feature
-
 ## Motivation
 
 E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited customisation. The **Xteink X4** is an affordable e-paper device, however the official firmware remains closed.
@@ -49,34 +30,42 @@ Papyrix aims to:
 
 This project is **not affiliated with Xteink**; it's built as a community project.
 
-## Features & Usage
+## Features
 
-- [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
-- [ ] Image support within EPUB
+### Reading & Format Support
+- [x] EPUB 2 and EPUB 3 parsing (nav.xhtml with NCX fallback)
+- [x] XTC/XTCH native format support
 - [x] Saved reading position
-- [x] exFAT SD card support (in addition to FAT32)
-- [x] UTF-8 filenames (Cyrillic, etc.)
-- [x] File explorer with file picker
-  - [x] Basic EPUB picker from root directory
-  - [x] Support nested folders
-  - [ ] EPUB picker with cover art
-- [x] Custom sleep screen
-  - [x] Cover sleep screen
-- [x] Book cover display when reading
-- [x] Wifi book upload
-- [x] Wifi OTA updates
+- [x] Book cover display (configurable)
+- [x] Table of contents navigation
+- [ ] Image support within EPUB
+
+### Text & Display
+- [x] Configurable font sizes (Small/Medium/Large)
+- [x] Paragraph alignment (Justified/Left/Center/Right)
+- [x] Soft hyphen support for text layout
+- [x] Pages per refresh setting (1/5/10/15/30)
+- [x] 4 screen orientations
+
+### Customization
+- [x] Custom themes from SD card (`/config/themes/`)
+- [x] Custom fonts from SD card (`/config/fonts/`, .epdfont format)
+- [x] Custom sleep screens (Dark/Light/Custom/Cover modes)
+- [x] Button remapping (side and front buttons)
+
+### Network & Connectivity
+- [x] WiFi file transfer (web server)
 - [x] Net Library (OPDS) - Browse and download from OPDS servers
 - [x] Calibre Wireless Device - Send books from Calibre desktop
-- [x] Configurable font size options
-- [x] Configurable paragraph alignment
-- [x] Configurable pages per refresh
-- [x] Custom themes (colors, layout, button mapping)
-- [x] Custom fonts from SD card
-- [ ] Screen rotation
+- [x] OTA firmware updates
 
-See [the user guide](docs/user_guide.md) for instructions on operating Papyrix.
+### File System
+- [x] exFAT and FAT32 SD card support
+- [x] UTF-8 filenames (Cyrillic, etc.)
+- [x] File explorer with nested folders
+- [x] Hidden system folders filtering (LOST.DIR, $RECYCLE.BIN, etc.)
 
-For themes and fonts customization, see the [customization guide](docs/customization.md).
+See [the user guide](docs/user_guide.md) for operating instructions, and the [customization guide](docs/customization.md) for themes and fonts.
 
 ## Installing
 

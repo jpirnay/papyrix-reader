@@ -35,7 +35,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 ### Reading & Format Support
 - [x] EPUB 2 and EPUB 3 parsing (nav.xhtml with NCX fallback)
 - [x] XTC/XTCH native format support
-- [x] Plain text (.txt) file support
+- [x] Plain text (.txt, .text) file support
 - [x] Saved reading position
 - [x] Book cover display (configurable)
 - [x] Table of contents navigation

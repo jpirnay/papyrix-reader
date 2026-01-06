@@ -21,20 +21,17 @@ std::string ReaderActivity::extractFolderPath(const std::string& filePath) {
 }
 
 bool ReaderActivity::isXtcFile(const std::string& path) {
-  if (path.length() < 4) return false;
-  std::string ext4 = path.substr(path.length() - 4);
-  if (ext4 == ".xtc") return true;
-  if (path.length() >= 5) {
-    std::string ext5 = path.substr(path.length() - 5);
-    if (ext5 == ".xtch") return true;
-  }
-  return false;
+  const size_t dotPos = path.find_last_of('.');
+  if (dotPos == std::string::npos) return false;
+  const std::string ext = path.substr(dotPos);
+  return (ext == ".xtc" || ext == ".xtch");
 }
 
 bool ReaderActivity::isTxtFile(const std::string& path) {
-  if (path.length() < 4) return false;
-  std::string ext4 = path.substr(path.length() - 4);
-  return ext4 == ".txt";
+  const size_t dotPos = path.find_last_of('.');
+  if (dotPos == std::string::npos) return false;
+  const std::string ext = path.substr(dotPos);
+  return (ext == ".txt" || ext == ".text");
 }
 
 std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {

@@ -277,90 +277,92 @@ void TxtReaderActivity::renderPage() {
   size_t bytesRead = txt->readContent(buffer, pageStart, pageLen);
   buffer[bytesRead] = '\0';
 
-  // Render text lines
-  int y = orientedMarginTop;
-  size_t offset = 0;
+  // Lambda to render text content - can be called multiple times for anti-aliasing passes
+  auto renderTextContent = [&]() {
+    int y = orientedMarginTop;
+    size_t offset = 0;
 
-  while (offset < bytesRead && y + lineHeight <= renderer.getScreenHeight() - orientedMarginBottom) {
-    // Find end of current line (newline or wrap point)
-    size_t lineStart = offset;
-    size_t lineEnd = offset;
-    size_t lastWordEnd = offset;
-    int lineWidth = 0;
+    while (offset < bytesRead && y + lineHeight <= renderer.getScreenHeight() - orientedMarginBottom) {
+      // Find end of current line (newline or wrap point)
+      size_t lineStart = offset;
+      size_t lineEnd = offset;
+      size_t lastWordEnd = offset;
+      int lineWidth = 0;
 
-    while (lineEnd < bytesRead) {
-      // Handle newline
-      if (buffer[lineEnd] == '\n') {
-        lineEnd++;
-        break;
-      }
-      if (buffer[lineEnd] == '\r') {
-        lineEnd++;
-        if (lineEnd < bytesRead && buffer[lineEnd] == '\n') {
+      while (lineEnd < bytesRead) {
+        // Handle newline
+        if (buffer[lineEnd] == '\n') {
           lineEnd++;
+          break;
         }
-        break;
-      }
-
-      // Get next UTF-8 character
-      size_t charStart = lineEnd;
-      size_t charEnd = getNextUtf8Char(buffer, lineEnd, bytesRead);
-
-      // Calculate character width
-      char charBuf[8];
-      size_t charLen = charEnd - charStart;
-      if (charLen < sizeof(charBuf)) {
-        memcpy(charBuf, buffer + charStart, charLen);
-        charBuf[charLen] = '\0';
-        int charWidth = renderer.getTextWidth(fontId, charBuf);
-
-        if (lineWidth + charWidth > viewportWidth) {
-          // Line too long - wrap at last word boundary if possible
-          if (lastWordEnd > lineStart) {
-            lineEnd = lastWordEnd;
+        if (buffer[lineEnd] == '\r') {
+          lineEnd++;
+          if (lineEnd < bytesRead && buffer[lineEnd] == '\n') {
+            lineEnd++;
           }
           break;
         }
 
-        lineWidth += charWidth;
+        // Get next UTF-8 character
+        size_t charStart = lineEnd;
+        size_t charEnd = getNextUtf8Char(buffer, lineEnd, bytesRead);
+
+        // Calculate character width
+        char charBuf[8];
+        size_t charLen = charEnd - charStart;
+        if (charLen < sizeof(charBuf)) {
+          memcpy(charBuf, buffer + charStart, charLen);
+          charBuf[charLen] = '\0';
+          int charWidth = renderer.getTextWidth(fontId, charBuf);
+
+          if (lineWidth + charWidth > viewportWidth) {
+            // Line too long - wrap at last word boundary if possible
+            if (lastWordEnd > lineStart) {
+              lineEnd = lastWordEnd;
+            }
+            break;
+          }
+
+          lineWidth += charWidth;
+        }
+
+        // Track word boundaries (after spaces)
+        if (buffer[charStart] == ' ' || buffer[charStart] == '\t') {
+          lastWordEnd = charEnd;
+        }
+
+        lineEnd = charEnd;
       }
 
-      // Track word boundaries (after spaces)
-      if (buffer[charStart] == ' ' || buffer[charStart] == '\t') {
-        lastWordEnd = charEnd;
-      }
+      // Render the line
+      if (lineEnd > lineStart) {
+        size_t renderLen = lineEnd - lineStart;
+        // Trim trailing whitespace for rendering
+        while (renderLen > 0 && (buffer[lineStart + renderLen - 1] == ' ' ||
+                                 buffer[lineStart + renderLen - 1] == '\t' ||
+                                 buffer[lineStart + renderLen - 1] == '\r' ||
+                                 buffer[lineStart + renderLen - 1] == '\n')) {
+          renderLen--;
+        }
 
-      lineEnd = charEnd;
-    }
-
-    // Render the line
-    if (lineEnd > lineStart) {
-      size_t renderLen = lineEnd - lineStart;
-      // Trim trailing whitespace for rendering
-      while (renderLen > 0 && (buffer[lineStart + renderLen - 1] == ' ' ||
-                               buffer[lineStart + renderLen - 1] == '\t' ||
-                               buffer[lineStart + renderLen - 1] == '\r' ||
-                               buffer[lineStart + renderLen - 1] == '\n')) {
-        renderLen--;
-      }
-
-      if (renderLen > 0) {
-        char* lineBuf = static_cast<char*>(malloc(renderLen + 1));
-        if (lineBuf) {
-          memcpy(lineBuf, buffer + lineStart, renderLen);
-          lineBuf[renderLen] = '\0';
-          renderer.drawText(fontId, orientedMarginLeft, y, lineBuf, THEME.primaryTextBlack);
-          free(lineBuf);
+        if (renderLen > 0) {
+          char* lineBuf = static_cast<char*>(malloc(renderLen + 1));
+          if (lineBuf) {
+            memcpy(lineBuf, buffer + lineStart, renderLen);
+            lineBuf[renderLen] = '\0';
+            renderer.drawText(fontId, orientedMarginLeft, y, lineBuf, THEME.primaryTextBlack);
+            free(lineBuf);
+          }
         }
       }
+
+      y += lineHeight;
+      offset = lineEnd;
     }
+  };
 
-    y += lineHeight;
-    offset = lineEnd;
-  }
-
-  free(buffer);
-
+  // Render text content (BW pass)
+  renderTextContent();
   renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
 
   // Display with refresh logic
@@ -371,6 +373,32 @@ void TxtReaderActivity::renderPage() {
     renderer.displayBuffer();
     pagesUntilFullRefresh--;
   }
+
+  // Grayscale text rendering (anti-aliasing)
+  if (SETTINGS.textAntiAliasing) {
+    renderer.storeBwBuffer();
+
+    // Render LSB grayscale pass
+    renderer.clearScreen(0x00);
+    renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
+    renderTextContent();
+    renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
+    renderer.copyGrayscaleLsbBuffers();
+
+    // Render MSB grayscale pass
+    renderer.clearScreen(0x00);
+    renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
+    renderTextContent();
+    renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
+    renderer.copyGrayscaleMsbBuffers();
+
+    // Display grayscale and restore BW mode
+    renderer.displayGrayBuffer();
+    renderer.setRenderMode(GfxRenderer::BW);
+    renderer.restoreBwBuffer();
+  }
+
+  free(buffer);
 
   Serial.printf("[%lu] [TXR] Rendered page %lu/%zu\n", millis(), currentPage + 1, pageIndex.size());
 }

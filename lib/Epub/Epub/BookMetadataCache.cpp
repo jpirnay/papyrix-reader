@@ -4,6 +4,7 @@
 #include <Serialization.h>
 #include <ZipFile.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "FsHelpers.h"
@@ -48,12 +49,28 @@ bool BookMetadataCache::beginTocPass() {
     spineFile.close();
     return false;
   }
+
+  // Pre-load spine hrefs for O(1) lookup during TOC entry creation
+  spineHrefs.clear();
+  spineHrefs.reserve(spineCount);
+  spineFile.seek(0);
+  for (int i = 0; i < spineCount; i++) {
+    auto entry = readSpineEntry(spineFile);
+    spineHrefs.push_back(std::move(entry.href));
+  }
+  Serial.printf("[%lu] [BMC] Cached %d spine hrefs for fast lookup\n", millis(), spineCount);
+
   return true;
 }
 
 bool BookMetadataCache::endTocPass() {
   tocFile.close();
   spineFile.close();
+
+  // Free cached spine hrefs memory
+  spineHrefs.clear();
+  spineHrefs.shrink_to_fit();
+
   return true;
 }
 
@@ -250,22 +267,16 @@ void BookMetadataCache::createSpineEntry(const std::string& href) {
 
 void BookMetadataCache::createTocEntry(const std::string& title, const std::string& href, const std::string& anchor,
                                        const uint8_t level) {
-  if (!buildMode || !tocFile || !spineFile) {
+  if (!buildMode || !tocFile) {
     Serial.printf("[%lu] [BMC] createTocEntry called but not in build mode\n", millis());
     return;
   }
 
+  // O(n) lookup using cached spine hrefs instead of O(n) disk reads per TOC entry
   int spineIndex = -1;
-  // find spine index
-  // TODO: This lookup is slow as need to scan through all items each time. We can't hold it all in memory due to size.
-  //       But perhaps we can load just the hrefs in a vector/list to do an index lookup?
-  spineFile.seek(0);
-  for (int i = 0; i < spineCount; i++) {
-    auto spineEntry = readSpineEntry(spineFile);
-    if (spineEntry.href == href) {
-      spineIndex = i;
-      break;
-    }
+  auto it = std::find(spineHrefs.begin(), spineHrefs.end(), href);
+  if (it != spineHrefs.end()) {
+    spineIndex = static_cast<int>(std::distance(spineHrefs.begin(), it));
   }
 
   if (spineIndex == -1) {

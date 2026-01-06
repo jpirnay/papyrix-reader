@@ -330,19 +330,35 @@ void XtcReaderActivity::renderPage() {
     return;
   } else {
     // 1-bit mode: 8 pixels per byte, MSB first
+    // Optimized: process byte-by-byte instead of pixel-by-pixel
     const size_t srcRowBytes = (pageWidth + 7) / 8;  // 60 bytes for 480 width
 
     for (uint16_t srcY = 0; srcY < maxSrcY; srcY++) {
       const size_t srcRowStart = srcY * srcRowBytes;
 
-      for (uint16_t srcX = 0; srcX < pageWidth; srcX++) {
-        // Read source pixel (MSB first, bit 7 = leftmost pixel)
-        const size_t srcByte = srcRowStart + srcX / 8;
-        const size_t srcBit = 7 - (srcX % 8);
-        const bool isBlack = !((pageBuffer[srcByte] >> srcBit) & 1);  // XTC: 0 = black, 1 = white
+      for (size_t byteIdx = 0; byteIdx < srcRowBytes; byteIdx++) {
+        const uint8_t byte = pageBuffer[srcRowStart + byteIdx];
 
-        if (isBlack) {
-          renderer.drawPixel(srcX, srcY, true);
+        // Fast path: all white (0xFF) - skip entirely
+        if (byte == 0xFF) continue;
+
+        const uint16_t baseX = byteIdx * 8;
+
+        // Fast path: all black (0x00) - draw all 8 pixels
+        if (byte == 0x00) {
+          for (int bit = 0; bit < 8 && baseX + bit < pageWidth; bit++) {
+            renderer.drawPixel(baseX + bit, srcY, true);
+          }
+          continue;
+        }
+
+        // Mixed byte - process individual bits (MSB first, bit 7 = leftmost)
+        for (int bit = 7; bit >= 0; bit--) {
+          const uint16_t x = baseX + (7 - bit);
+          if (x >= pageWidth) break;
+          if (!((byte >> bit) & 1)) {  // XTC: 0 = black, 1 = white
+            renderer.drawPixel(x, srcY, true);
+          }
         }
       }
     }

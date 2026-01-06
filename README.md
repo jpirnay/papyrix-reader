@@ -183,6 +183,14 @@ Papyrix is pretty aggressive about caching data down to the SD card to minimise 
 
 The ESP32 WiFi stack allocates ~100KB and fragments heap memory in a way that cannot be recovered at runtime. After using WiFi features (File Transfer or OTA updates), XTC books require ~96KB of contiguous memory for page rendering. To ensure reliable operation, the device automatically restarts after exiting WiFi mode to reclaim memory.
 
+### Performance optimizations
+
+Papyrix includes several performance optimizations for the constrained ESP32-C3 environment:
+
+**EPUB indexing**: TOC-to-spine mapping uses in-memory href caching to avoid repeated SD card reads during book indexing. This reduces indexing time from O(n²) disk operations to O(n) memory lookups.
+
+**XTC rendering**: 1-bit monochrome pages use byte-level processing instead of pixel-by-pixel iteration. All-white bytes (common in margins) are skipped entirely, and all-black bytes are processed in bulk.
+
 ### Data caching
 
 The first time chapters of a book are loaded, they are cached to the SD card. Subsequent loads are served from the cache. This cache directory exists at `.papyrix` on the SD card. The structure is as follows:

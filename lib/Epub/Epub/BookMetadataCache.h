@@ -3,6 +3,7 @@
 #include <SDCardManager.h>
 
 #include <string>
+#include <vector>
 
 class BookMetadataCache {
  public:
@@ -51,6 +52,9 @@ class BookMetadataCache {
   // Temp file handles during build
   FsFile spineFile;
   FsFile tocFile;
+
+  // Cached spine hrefs for O(1) lookup during TOC pass
+  std::vector<std::string> spineHrefs;
 
   uint32_t writeSpineEntry(FsFile& file, const SpineEntry& entry) const;
   uint32_t writeTocEntry(FsFile& file, const TocEntry& entry) const;

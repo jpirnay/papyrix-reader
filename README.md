@@ -35,6 +35,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 ### Reading & Format Support
 - [x] EPUB 2 and EPUB 3 parsing (nav.xhtml with NCX fallback)
 - [x] XTC/XTCH native format support
+- [x] Plain text (.txt) file support
 - [x] Saved reading position
 - [x] Book cover display (configurable)
 - [x] Table of contents navigation
@@ -197,6 +198,11 @@ The first time chapters of a book are loaded, they are cached to the SD card. Su
 │       ├── 0.bin        # Chapter data (screen count, all text layout info, etc.)
 │       ├── 1.bin        #     files are named by their index in the spine
 │       └── ...
+│
+├── txt_98765432/        # Each TXT file is cached to a subdirectory named `txt_<hash>`
+│   ├── progress.bin     # Stores current page number (4-byte uint32)
+│   ├── index.bin        # Page index (byte offsets for each page start)
+│   └── cover.bmp        # Cover image (if found in same directory as TXT file)
 │
 └── epub_189013891/
 ```

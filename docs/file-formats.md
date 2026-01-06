@@ -1,5 +1,47 @@
 # File Formats
 
+This document describes the binary cache formats used by Papyrix for EPUB and TXT files.
+
+## TXT Cache Files
+
+TXT files use a simple cache format stored in `.papyrix/txt_<hash>/`.
+
+### `progress.bin`
+
+Stores the current reading position as a single 4-byte little-endian unsigned integer (page number).
+
+```
+Offset  Size  Description
+0x00    4     Current page number (uint32_t, little-endian)
+```
+
+### `index.bin`
+
+Stores the page index - byte offsets where each page starts in the source file. The index is invalidated and rebuilt when file size, viewport width, or lines-per-page changes.
+
+```
+Offset  Size        Description
+0x00    4           File size (uint32_t) - for cache validation
+0x04    4           Viewport width (int32_t) - for cache validation
+0x08    4           Lines per page (int32_t) - for cache validation
+0x0C    4           Page count (uint32_t)
+0x10    4 * count   Page offsets (uint32_t[]) - byte offset in file where each page starts
+```
+
+### `cover.bmp`
+
+Optional cover image, discovered by searching for:
+1. `<filename>.jpg` or `<filename>.bmp` (matching the TXT filename)
+2. `cover.jpg` or `cover.bmp` in the same directory
+
+The image is converted to BMP format for display.
+
+---
+
+## EPUB Cache Files
+
+EPUB files use a more complex cache format stored in `.papyrix/epub_<hash>/`.
+
 ## `book.bin`
 
 ### Version 3

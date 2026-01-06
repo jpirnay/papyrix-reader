@@ -4,6 +4,7 @@
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <SDCardManager.h>
+#include <Txt.h>
 #include <Xtc.h>
 
 #include <vector>
@@ -25,6 +26,13 @@ bool isXtcFile(const std::string& path) {
     if (ext5 == ".xtch") return true;
   }
   return false;
+}
+
+// Check if path has TXT extension
+bool isTxtFile(const std::string& path) {
+  if (path.length() < 4) return false;
+  std::string ext4 = path.substr(path.length() - 4);
+  return ext4 == ".txt";
 }
 }  // namespace
 
@@ -196,7 +204,7 @@ void SleepActivity::renderCoverSleepScreen() const {
 
   std::string coverBmpPath;
 
-  // Check if the current book is XTC or EPUB
+  // Check if the current book is XTC, TXT, or EPUB
   if (isXtcFile(APP_STATE.openEpubPath)) {
     // Handle XTC file
     Xtc lastXtc(APP_STATE.openEpubPath, PAPYRIX_DIR);
@@ -211,6 +219,20 @@ void SleepActivity::renderCoverSleepScreen() const {
     }
 
     coverBmpPath = lastXtc.getCoverBmpPath();
+  } else if (isTxtFile(APP_STATE.openEpubPath)) {
+    // Handle TXT file
+    Txt lastTxt(APP_STATE.openEpubPath, PAPYRIX_DIR);
+    if (!lastTxt.load()) {
+      Serial.println("[SLP] Failed to load last TXT");
+      return renderDefaultSleepScreen();
+    }
+
+    if (!lastTxt.generateCoverBmp()) {
+      Serial.println("[SLP] No cover image found for TXT");
+      return renderDefaultSleepScreen();
+    }
+
+    coverBmpPath = lastTxt.getCoverBmpPath();
   } else {
     // Handle EPUB file
     Epub lastEpub(APP_STATE.openEpubPath, PAPYRIX_DIR);

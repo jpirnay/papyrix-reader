@@ -93,28 +93,36 @@ void ClearCacheConfirmActivity::render() const {
 
   // Yes/No buttons
   const int buttonY = top + lineHeight * 3;
-  constexpr int buttonWidth = 60;
-  constexpr int buttonSpacing = 30;
+  constexpr int buttonWidth = 80;
+  constexpr int buttonHeight = 36;
+  constexpr int buttonSpacing = 20;
   constexpr int totalWidth = buttonWidth * 2 + buttonSpacing;
   const int startX = (pageWidth - totalWidth) / 2;
 
-  // Draw "Yes" button
-  if (selection == 0) {
-    renderer.drawText(THEME.uiFontId, startX, buttonY, "[Yes]", THEME.primaryTextBlack);
-  } else {
-    renderer.drawText(THEME.uiFontId, startX + 4, buttonY, "Yes", THEME.primaryTextBlack);
+  const char* buttonLabels[] = {"Yes", "No"};
+  const int buttonPositions[] = {startX, startX + buttonWidth + buttonSpacing};
+
+  for (int i = 0; i < 2; i++) {
+    const bool isSelected = (selection == i);
+    const int btnX = buttonPositions[i];
+
+    if (isSelected) {
+      renderer.fillRect(btnX, buttonY, buttonWidth, buttonHeight, THEME.selectionFillBlack);
+    } else {
+      renderer.drawRect(btnX, buttonY, buttonWidth, buttonHeight, THEME.primaryTextBlack);
+    }
+
+    const bool textColor = isSelected ? THEME.selectionTextBlack : THEME.primaryTextBlack;
+    const int textWidth = renderer.getTextWidth(THEME.uiFontId, buttonLabels[i]);
+    const int textX = btnX + (buttonWidth - textWidth) / 2;
+    const int textY = buttonY + (buttonHeight - renderer.getFontAscenderSize(THEME.uiFontId)) / 2;
+    renderer.drawText(THEME.uiFontId, textX, textY, buttonLabels[i], textColor);
   }
 
-  // Draw "No" button
-  if (selection == 1) {
-    renderer.drawText(THEME.uiFontId, startX + buttonWidth + buttonSpacing, buttonY, "[No]", THEME.primaryTextBlack);
-  } else {
-    renderer.drawText(THEME.uiFontId, startX + buttonWidth + buttonSpacing + 4, buttonY, "No", THEME.primaryTextBlack);
-  }
-
-  // Help text
-  renderer.drawCenteredText(THEME.smallFontId, pageHeight - 30, "LEFT/RIGHT: Select | OK: Confirm | BACK: Cancel",
-                            THEME.primaryTextBlack);
+  // Button hints at bottom
+  const auto btnLabels = mappedInput.mapLabels("Back", "Confirm", "Left", "Right");
+  renderer.drawButtonHints(THEME.uiFontId, btnLabels.btn1, btnLabels.btn2, btnLabels.btn3, btnLabels.btn4,
+                           THEME.primaryTextBlack);
 
   renderer.displayBuffer();
 }

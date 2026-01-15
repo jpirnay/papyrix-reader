@@ -1,6 +1,7 @@
 #include "StringUtils.h"
 
 #include <Utf8.h>
+
 #include <cstring>
 
 namespace StringUtils {

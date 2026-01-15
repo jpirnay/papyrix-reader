@@ -185,7 +185,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
       // Check if the next two bytes complete the 3-byte sequence
       if ((i + 2 < len) && (s[i + 1] == FEFF_BYTE_2) && (s[i + 2] == FEFF_BYTE_3)) {
         // Sequence 0xEF 0xBB 0xBF found!
-        i += 2;  // Skip the next two bytes
+        i += 2;    // Skip the next two bytes
         continue;  // Move to the next iteration
       }
     }

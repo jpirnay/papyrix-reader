@@ -10,8 +10,7 @@ class SystemInfoActivity final : public Activity {
   void render() const;
 
  public:
-  explicit SystemInfoActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
-                              std::function<void()> onComplete)
+  explicit SystemInfoActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::function<void()> onComplete)
       : Activity("SystemInfo", renderer, mappedInput), onComplete(std::move(onComplete)) {}
 
   void onEnter() override;

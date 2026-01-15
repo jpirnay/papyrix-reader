@@ -65,15 +65,39 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   }
 
   if (matches(name, IMAGE_TAGS, NUM_IMAGE_TAGS)) {
-    // TODO: Start processing image tags
-    self->skipUntilDepth = self->depth;
+    // TODO: Render actual images - extract src attribute, load image from EPUB archive,
+    // decode and render to e-paper display. Consider caching decoded images.
+    // For now, extract alt text and display as placeholder
+    std::string altText;
+    if (atts != nullptr) {
+      for (int i = 0; atts[i]; i += 2) {
+        if (strcmp(atts[i], "alt") == 0 && atts[i + 1][0] != '\0') {
+          altText = atts[i + 1];
+          break;
+        }
+      }
+    }
+
+    // Show placeholder with alt text if available
+    self->startNewTextBlock(TextBlock::CENTER_ALIGN);
+    if (self->currentTextBlock) {
+      if (!altText.empty()) {
+        std::string placeholder = "[Image: " + altText + "]";
+        self->currentTextBlock->addWord(placeholder.c_str(), EpdFontFamily::ITALIC);
+      } else {
+        self->currentTextBlock->addWord("[Image]", EpdFontFamily::ITALIC);
+      }
+    }
+
     self->depth += 1;
     return;
   }
 
   // Special handling for tables - show placeholder text instead of dropping silently
+  // TODO: Render tables - parse table structure (thead, tbody, tr, td, th), calculate
+  // column widths, handle colspan/rowspan, and render as formatted text grid.
   if (strcmp(name, "table") == 0) {
-    // Add placeholder text
+    // For now, add placeholder text
     self->startNewTextBlock(TextBlock::CENTER_ALIGN);
     if (self->currentTextBlock) {
       self->currentTextBlock->addWord("[Table omitted]", EpdFontFamily::ITALIC);

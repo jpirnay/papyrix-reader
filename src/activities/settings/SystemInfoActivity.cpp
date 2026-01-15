@@ -23,7 +23,6 @@ void SystemInfoActivity::loop() {
 
 void SystemInfoActivity::render() const {
   const auto pageWidth = renderer.getScreenWidth();
-  const auto pageHeight = renderer.getScreenHeight();
   const auto lineHeight = renderer.getLineHeight(THEME.uiFontId) + 5;
 
   renderer.clearScreen(THEME.backgroundColor);

@@ -3,6 +3,7 @@
 #include <Epub.h>
 #include <GfxRenderer.h>
 #include <InputManager.h>
+#include <LittleFS.h>
 #include <SDCardManager.h>
 #include <SPI.h>
 #include <builtinFonts/reader_2b.h>
@@ -327,6 +328,13 @@ void setup() {
   }
 
   SETTINGS.loadFromFile();
+
+  // Initialize internal flash filesystem for font storage
+  if (!LittleFS.begin(true)) {
+    Serial.printf("[%lu] [FS] LittleFS mount failed\n", millis());
+  } else {
+    Serial.printf("[%lu] [FS] LittleFS mounted\n", millis());
+  }
 
   // Initialize theme and font managers
   FONT_MANAGER.init(renderer);

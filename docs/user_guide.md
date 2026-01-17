@@ -165,6 +165,14 @@ The Settings screen allows you to configure the device's behavior:
   - Connect directly to Calibre desktop to send/receive books
   - See [3.7 Calibre Wireless](#37-calibre-wireless) below
 
+- **Cleanup**
+  - **Clear Book Caches** — Delete all cached book data and reading progress
+  - **Clear Installed Font** — Remove custom font from internal flash, revert to builtin (requires restart)
+  - **Factory Reset** — Erase ALL data (caches, settings, WiFi credentials, fonts) and restart device
+
+- **System Info**
+  - View device information: firmware version, uptime, WiFi status, MAC address, free memory, internal disk usage, SD card usage
+
 ### 3.6 Net Library
 
 Net Library allows you to browse and download books directly from any [OPDS](https://opds.io/)-compatible server running on your local network. OPDS (Open Publication Distribution System) is an open standard supported by many ebook servers including:

@@ -72,4 +72,22 @@ int clearAllBookCaches() {
   return deletedCount;
 }
 
+void factoryReset() {
+  Serial.printf("[%lu] [CACHE] Starting factory reset...\n", millis());
+
+  // 1. Clear book caches
+  clearAllBookCaches();
+
+  // 2. Remove settings files
+  SdMan.remove(PAPYRIX_SETTINGS_FILE);
+  SdMan.remove(PAPYRIX_STATE_FILE);
+  SdMan.remove(PAPYRIX_WIFI_FILE);
+  Serial.printf("[%lu] [CACHE] Removed settings files\n", millis());
+
+  Serial.printf("[%lu] [CACHE] Factory reset complete, restarting...\n", millis());
+
+  // 3. Restart device
+  ESP.restart();
+}
+
 }  // namespace CacheManager

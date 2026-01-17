@@ -8,3 +8,5 @@ CLAUDE.md
 .claude/
 node_modules/
 scripts/node_modules/
+tmp/*
+data/*

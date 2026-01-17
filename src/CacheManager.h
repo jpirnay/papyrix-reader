@@ -7,4 +7,8 @@ namespace CacheManager {
 // Returns number of directories deleted, or -1 on error
 int clearAllBookCaches();
 
+// Factory reset: Clear all caches, settings, wifi config, and installed fonts
+// Then restart the device
+void factoryReset();
+
 }  // namespace CacheManager

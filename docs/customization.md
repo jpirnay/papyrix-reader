@@ -265,6 +265,7 @@ node convert-fonts.mjs my-font -r MyFont-Regular.ttf
 - **-s, --size** - Font size in points (default: 16)
 - **--2bit** - Generate 2-bit grayscale (smoother but larger)
 - **--all-sizes** - Generate all reader sizes (14, 16, 18pt)
+- **--cjk-2500** - Use minimal CJK (~2,500 chars): Jōyō kanji + kana + punctuation (fits in ESP32 RAM, covers 99%+ of Japanese text)
 - **--cjk-common** - Use full CJK (20,992) + Hangul (11,172), reduced fullwidth forms
 
 #### Examples
@@ -282,7 +283,10 @@ node convert-fonts.mjs my-font -r Font.ttf --all-sizes
 # Use 2-bit grayscale for smoother rendering
 node convert-fonts.mjs my-font -r Font.ttf --2bit
 
-# Generate CJK fonts (Japanese, Korean, Chinese)
+# Generate CJK fonts for device (fits in ESP32 RAM)
+node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-2500
+
+# Generate full CJK fonts (requires XTC pre-rendering due to size)
 node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-common
 ```
 
@@ -344,6 +348,36 @@ Use `--additional-intervals` to add more Unicode ranges if needed. For example, 
 ```bash
 python3 fontconvert.py MyFont 16 font.ttf --binary --additional-intervals 0x0400,0x04FF -o output.epdfont
 ```
+
+### CJK Fonts (Japanese, Korean, Chinese)
+
+The ESP32-C3 has limited RAM (~380KB), which affects CJK font loading. There are two approaches:
+
+#### Option 1: Minimal CJK (`--cjk-2500`) - Recommended
+
+Uses the Jōyō kanji set (~2,500 characters) which covers 99%+ of typical Japanese text:
+
+```bash
+node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-2500
+```
+
+**File sizes:** 14pt ~376KB, 16pt ~456KB, 18pt ~556KB
+
+This fits in ESP32 RAM and works directly on the device.
+
+#### Option 2: Full CJK (`--cjk-common`)
+
+Uses the complete CJK character set (20,992 characters):
+
+```bash
+node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-common
+```
+
+**File sizes:** 16pt ~1.86MB
+
+This exceeds ESP32 RAM. Use with the [EPUB to XTC Converter](https://github.com/bigbag/epub-to-xtc-converter) to pre-render books to XTC format.
+
+See [Jōyō Kanji Character Set](joyo-kanji.md) for details on the minimal character set.
 
 ### Fallback Behavior
 

@@ -61,6 +61,10 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 - [x] Calibre Wireless Device - Send books from Calibre desktop
 - [x] OTA firmware updates
 
+### Maintenance
+- [x] Cleanup menu (clear caches, fonts, factory reset)
+- [x] System info (version, uptime, memory, storage)
+
 ### File System
 - [x] exFAT and FAT32 SD card support
 - [x] UTF-8 filenames (Cyrillic, etc.)
@@ -186,11 +190,14 @@ node convert-fonts.mjs my-font -r MyFont-Regular.ttf
 # Full font family with all reader sizes
 node convert-fonts.mjs my-font -r Regular.ttf -b Bold.ttf -i Italic.ttf --all-sizes
 
-# CJK fonts (Japanese, Korean, Chinese)
+# CJK fonts - minimal set (fits in device RAM, covers 99%+ Japanese text)
+node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-2500
+
+# CJK fonts - full set (requires pre-rendering to XTC format)
 node convert-fonts.mjs noto-sans-jp -r NotoSansJP-Regular.ttf --all-sizes --cjk-common
 ```
 
-Options: `-r/--regular`, `-b/--bold`, `-i/--italic`, `-o/--output`, `-s/--size`, `--2bit`, `--all-sizes`, `--cjk-common`
+Options: `-r/--regular`, `-b/--bold`, `-i/--italic`, `-o/--output`, `-s/--size`, `--2bit`, `--all-sizes`, `--cjk-2500`, `--cjk-common`
 
 See [customization guide](docs/customization.md) for detailed font conversion instructions.
 
@@ -285,7 +292,12 @@ The first time chapters of a book are loaded, they are cached to the SD card. Su
 └── epub_189013891/
 ```
 
-Deleting the `.papyrix` directory will clear the entire cache.
+To clear cached data, use **Settings > Cleanup**:
+- **Clear Book Caches** — Delete all cached book data and reading progress
+- **Clear Installed Font** — Remove custom font from internal flash
+- **Factory Reset** — Erase all data (caches, settings, WiFi, fonts) and restart
+
+Alternatively, deleting the `.papyrix` directory manually will clear the book cache.
 
 Due the way it's currently implemented, the cache is not automatically cleared when a book is deleted and moving a book file will use a new cache directory, resetting the reading progress.
 

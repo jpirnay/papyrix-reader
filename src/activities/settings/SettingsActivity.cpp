@@ -2,11 +2,11 @@
 
 #include <GfxRenderer.h>
 
-#include "ClearCacheConfirmActivity.h"
 #include "CrossPointSettings.h"
 #include "FontManager.h"
 #include "MappedInputManager.h"
 #include "OtaUpdateActivity.h"
+#include "StorageActivity.h"
 #include "SystemInfoActivity.h"
 #include "ThemeManager.h"
 #include "config.h"
@@ -46,7 +46,7 @@ const SettingInfo settingsList[settingsCount] = {
     {"Calibre Wireless", SettingType::ACTION, nullptr, nullptr, 0},
     {"File transfer", SettingType::ACTION, nullptr, nullptr, 0},
     {"Check for updates", SettingType::ACTION, nullptr, nullptr, 0},
-    {"Clear Cache", SettingType::ACTION, nullptr, nullptr, 0},
+    {"Cleanup", SettingType::ACTION, nullptr, nullptr, 0},
     {"System Info", SettingType::ACTION, nullptr, nullptr, 0},
 };
 }  // namespace
@@ -200,10 +200,10 @@ void SettingsActivity::toggleCurrentSetting() {
         updateRequired = true;
       }));
       xSemaphoreGive(renderingMutex);
-    } else if (std::string(setting.name) == "Clear Cache") {
+    } else if (std::string(setting.name) == "Cleanup") {
       xSemaphoreTake(renderingMutex, portMAX_DELAY);
       exitActivity();
-      enterNewActivity(new ClearCacheConfirmActivity(renderer, mappedInput, [this](bool) {
+      enterNewActivity(new StorageActivity(renderer, mappedInput, [this] {
         exitActivity();
         updateRequired = true;
       }));

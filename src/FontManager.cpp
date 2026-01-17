@@ -152,23 +152,20 @@ bool FontManager::fontFamilyExists(const char* familyName) {
 }
 
 int FontManager::getFontId(const char* familyName, int builtinFontId) {
-  // Empty name means use builtin
   if (!familyName || !*familyName) {
     return builtinFontId;
   }
 
-  // Check if already loaded
   int targetId = generateFontId(familyName);
   if (loadedFamilies.find(targetId) != loadedFamilies.end()) {
     return targetId;
   }
 
-  // Try to load
+  // Load from SD card
   if (loadFontFamily(familyName, targetId)) {
     return targetId;
   }
 
-  // Fallback to builtin
   return builtinFontId;
 }
 

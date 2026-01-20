@@ -6,14 +6,25 @@
 #include <SDCardManager.h>
 #include <Serialization.h>
 
-void ImageBlock::render(GfxRenderer& renderer, const int x, const int y) const {
+void ImageBlock::render(GfxRenderer& renderer, const int fontId, const int x, const int y) const {
+  auto renderPlaceholder = [&]() {
+    const char* placeholder = "[Image]";
+    const int textWidth = renderer.getTextWidth(fontId, placeholder);
+    int textX = x + (static_cast<int>(width) - textWidth) / 2;
+    if (textX < x) textX = x;
+    const int textY = y + height / 2;
+    renderer.drawText(fontId, textX, textY, placeholder, true);
+  };
+
   if (cachedBmpPath.empty()) {
+    renderPlaceholder();
     return;
   }
 
   FsFile bmpFile;
   if (!SdMan.openFileForRead("IMB", cachedBmpPath, bmpFile)) {
     Serial.printf("[%lu] [IMB] Failed to open cached BMP: %s\n", millis(), cachedBmpPath.c_str());
+    renderPlaceholder();
     return;
   }
 
@@ -22,6 +33,7 @@ void ImageBlock::render(GfxRenderer& renderer, const int x, const int y) const {
   if (err != BmpReaderError::Ok) {
     Serial.printf("[%lu] [IMB] BMP parse error: %s\n", millis(), Bitmap::errorToString(err));
     bmpFile.close();
+    renderPlaceholder();
     return;
   }
 

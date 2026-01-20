@@ -27,9 +27,8 @@ std::unique_ptr<PageLine> PageLine::deserialize(FsFile& file) {
 
 void PageImage::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset,
                        const bool black) {
-  (void)fontId;
   (void)black;
-  block->render(renderer, xPos + xOffset, yPos + yOffset);
+  block->render(renderer, fontId, xPos + xOffset, yPos + yOffset);
 }
 
 bool PageImage::serialize(FsFile& file) {

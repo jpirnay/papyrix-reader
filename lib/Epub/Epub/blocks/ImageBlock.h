@@ -27,7 +27,7 @@ class ImageBlock final : public Block {
   uint16_t getHeight() const { return height; }
   const std::string& getCachedBmpPath() const { return cachedBmpPath; }
 
-  void render(GfxRenderer& renderer, int x, int y) const;
+  void render(GfxRenderer& renderer, int fontId, int x, int y) const;
   bool serialize(FsFile& file) const;
   static std::unique_ptr<ImageBlock> deserialize(FsFile& file);
 };

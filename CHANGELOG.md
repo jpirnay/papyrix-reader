@@ -1,5 +1,19 @@
 
 
+## v0.15.0 (2026-01-21)
+
+*  Update CHANGELOG [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Add inline image support with PNG and JPEG rendering [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ImageBlock: Add [Image] placeholder fallback for failed renders [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Store power button duration in RTC memory [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add GPIO hold during deep sleep to keep X4 LDO enabled [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Skip long press requirement after flashing firmware [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Remove OTA firmware update functionality [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  SystemInfo: Add battery state display with percentage and voltage [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add Show Images setting to toggle inline images and covers [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v0.14.0 (2026-01-17)
 
 *  GfxRenderer: Add clearArea for partial framebuffer clearing [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]

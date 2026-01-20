@@ -343,8 +343,8 @@ Accessible by pressing **Confirm** while inside a book. The screen header displa
 Please note that this firmware is currently in active development. The following features are **not yet supported** but
 are planned for future updates:
 
-* **Images:** Embedded images in e-books will not render. A placeholder showing the image's alt text (e.g., `[Image: description]`) is displayed instead.
 * **Tables:** HTML tables are not rendered. A `[Table omitted]` placeholder is shown instead.
+* **Image formats:** Only JPEG and PNG images are supported in EPUB. Other formats (GIF, SVG, WebP) show a placeholder.
 
 ---
 

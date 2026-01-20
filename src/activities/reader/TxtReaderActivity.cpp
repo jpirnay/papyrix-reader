@@ -357,8 +357,8 @@ void TxtReaderActivity::renderPage() {
             if (actualLineWidth > viewportWidth) {
               // Use hyphenation to break oversized text across multiple lines
               auto wrappedLines = renderer.wrapTextWithHyphenation(fontId, lineBuf, viewportWidth, 10);
-              for (size_t i = 0; i < wrappedLines.size() &&
-                                 y + lineHeight <= renderer.getScreenHeight() - orientedMarginBottom;
+              for (size_t i = 0;
+                   i < wrappedLines.size() && y + lineHeight <= renderer.getScreenHeight() - orientedMarginBottom;
                    i++) {
                 renderer.drawText(fontId, orientedMarginLeft, y, wrappedLines[i].c_str(), THEME.primaryTextBlack);
                 if (i < wrappedLines.size() - 1) {

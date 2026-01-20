@@ -1,7 +1,11 @@
 #include "ChapterHtmlSlimParser.h"
 
+#include <Bitmap.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HardwareSerial.h>
+#include <JpegToBmpConverter.h>
+#include <PngToBmpConverter.h>
 #include <SDCardManager.h>
 #include <expat.h>
 
@@ -65,20 +69,55 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   }
 
   if (matches(name, IMAGE_TAGS, NUM_IMAGE_TAGS)) {
-    // TODO: Render actual images - extract src attribute, load image from EPUB archive,
-    // decode and render to e-paper display. Consider caching decoded images.
-    // For now, extract alt text and display as placeholder
+    std::string srcAttr;
     std::string altText;
     if (atts != nullptr) {
       for (int i = 0; atts[i]; i += 2) {
-        if (strcmp(atts[i], "alt") == 0 && atts[i + 1][0] != '\0') {
+        if (strcmp(atts[i], "src") == 0 && atts[i + 1][0] != '\0') {
+          srcAttr = atts[i + 1];
+        } else if (strcmp(atts[i], "alt") == 0 && atts[i + 1][0] != '\0') {
           altText = atts[i + 1];
-          break;
         }
       }
     }
 
-    // Show placeholder with alt text if available
+    Serial.printf("[%lu] [EHP] Found image: src=%s\n", millis(), srcAttr.empty() ? "(empty)" : srcAttr.c_str());
+
+    // Try to cache and display the image if we have image support configured
+    if (!srcAttr.empty() && self->readItemFn && !self->imageCachePath.empty()) {
+      std::string cachedPath = self->cacheImage(srcAttr);
+      if (!cachedPath.empty()) {
+        // Read image dimensions from cached BMP
+        FsFile bmpFile;
+        if (SdMan.openFileForRead("EHP", cachedPath, bmpFile)) {
+          Bitmap bitmap(bmpFile, false);
+          if (bitmap.parseHeaders() == BmpReaderError::Ok) {
+            Serial.printf("[%lu] [EHP] Image loaded: %dx%d\n", millis(), bitmap.getWidth(), bitmap.getHeight());
+            auto imageBlock = std::make_shared<ImageBlock>(cachedPath, bitmap.getWidth(), bitmap.getHeight());
+            bmpFile.close();
+
+            // Flush any pending text block before adding image
+            if (self->currentTextBlock && !self->currentTextBlock->isEmpty()) {
+              self->makePages();
+            }
+
+            self->addImageToPage(imageBlock);
+            self->depth += 1;
+            return;
+          } else {
+            Serial.printf("[%lu] [EHP] BMP parse failed for cached image\n", millis());
+          }
+          bmpFile.close();
+        } else {
+          Serial.printf("[%lu] [EHP] Failed to open cached BMP: %s\n", millis(), cachedPath.c_str());
+        }
+      }
+    } else {
+      Serial.printf("[%lu] [EHP] Image skipped: src=%d, readItemFn=%d, imageCachePath=%d\n", millis(), !srcAttr.empty(),
+                    self->readItemFn != nullptr, !self->imageCachePath.empty());
+    }
+
+    // Fallback: show placeholder with alt text if image processing failed
     self->startNewTextBlock(TextBlock::CENTER_ALIGN);
     if (self->currentTextBlock) {
       if (!altText.empty()) {
@@ -383,4 +422,130 @@ void ChapterHtmlSlimParser::makePages() {
   if (extraParagraphSpacing) {
     currentPageNextY += lineHeight / 2;
   }
+}
+
+std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
+  // Resolve relative path from chapter base
+  std::string resolvedPath = FsHelpers::normalisePath(chapterBasePath + src);
+
+  // Generate cache filename from hash
+  size_t srcHash = std::hash<std::string>{}(resolvedPath);
+  std::string cachedBmpPath = imageCachePath + "/" + std::to_string(srcHash) + ".bmp";
+
+  // Check if already cached
+  if (SdMan.exists(cachedBmpPath.c_str())) {
+    return cachedBmpPath;
+  }
+
+  // Check for failed marker
+  std::string failedMarker = imageCachePath + "/" + std::to_string(srcHash) + ".failed";
+  if (SdMan.exists(failedMarker.c_str())) {
+    return "";
+  }
+
+  // Determine format from extension
+  std::string srcLower = src;
+  for (char& c : srcLower) {
+    if (c >= 'A' && c <= 'Z') c += 32;
+  }
+  const bool isJpeg = srcLower.find(".jpg") != std::string::npos || srcLower.find(".jpeg") != std::string::npos;
+  const bool isPng = srcLower.find(".png") != std::string::npos;
+
+  if (!isJpeg && !isPng) {
+    Serial.printf("[%lu] [EHP] Unsupported image format: %s\n", millis(), src.c_str());
+    FsFile marker;
+    if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
+      marker.close();
+    }
+    return "";
+  }
+
+  // Extract image to temp file (include hash in name for uniqueness)
+  const std::string tempExt = isPng ? ".png" : ".jpg";
+  std::string tempPath = imageCachePath + "/.tmp_" + std::to_string(srcHash) + tempExt;
+  FsFile tempFile;
+  if (!SdMan.openFileForWrite("EHP", tempPath, tempFile)) {
+    Serial.printf("[%lu] [EHP] Failed to create temp file for image\n", millis());
+    return "";
+  }
+
+  if (!readItemFn(resolvedPath, tempFile, 1024)) {
+    Serial.printf("[%lu] [EHP] Failed to extract image: %s\n", millis(), resolvedPath.c_str());
+    tempFile.close();
+    SdMan.remove(tempPath.c_str());
+    FsFile marker;
+    if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
+      marker.close();
+    }
+    return "";
+  }
+  tempFile.close();
+
+  // Open temp file for reading
+  FsFile imageFile;
+  if (!SdMan.openFileForRead("EHP", tempPath, imageFile)) {
+    Serial.printf("[%lu] [EHP] Failed to open temp image for reading\n", millis());
+    SdMan.remove(tempPath.c_str());
+    return "";
+  }
+
+  // Convert to BMP
+  FsFile bmpFile;
+  if (!SdMan.openFileForWrite("EHP", cachedBmpPath, bmpFile)) {
+    Serial.printf("[%lu] [EHP] Failed to create cached BMP file\n", millis());
+    imageFile.close();
+    SdMan.remove(tempPath.c_str());
+    return "";
+  }
+
+  // Max width is viewport, max height is half of viewport to avoid images taking too much vertical space
+  const int maxImageHeight = viewportHeight / 2;
+  bool success;
+  if (isPng) {
+    success = PngToBmpConverter::pngFileToBmpStreamWithSize(imageFile, bmpFile, viewportWidth, maxImageHeight);
+  } else {
+    success = JpegToBmpConverter::jpegFileToBmpStreamWithSize(imageFile, bmpFile, viewportWidth, maxImageHeight);
+  }
+
+  bmpFile.close();
+  imageFile.close();
+  SdMan.remove(tempPath.c_str());
+
+  if (!success) {
+    Serial.printf("[%lu] [EHP] Failed to convert %s to BMP: %s\n", millis(), isPng ? "PNG" : "JPEG",
+                  resolvedPath.c_str());
+    SdMan.remove(cachedBmpPath.c_str());
+    FsFile marker;
+    if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
+      marker.close();
+    }
+    return "";
+  }
+
+  Serial.printf("[%lu] [EHP] Cached image: %s\n", millis(), cachedBmpPath.c_str());
+  return cachedBmpPath;
+}
+
+void ChapterHtmlSlimParser::addImageToPage(std::shared_ptr<ImageBlock> image) {
+  const int imageHeight = image->getHeight();
+  const int lineHeight = renderer.getLineHeight(fontId) * lineCompression;
+
+  if (!currentPage) {
+    currentPage.reset(new Page());
+    currentPageNextY = 0;
+  }
+
+  // Check if image fits on current page
+  if (currentPageNextY + imageHeight > viewportHeight) {
+    completePageFn(std::move(currentPage));
+    currentPage.reset(new Page());
+    currentPageNextY = 0;
+  }
+
+  // Center image horizontally (cast to signed to handle images wider than viewport)
+  int xPos = (static_cast<int>(viewportWidth) - static_cast<int>(image->getWidth())) / 2;
+  if (xPos < 0) xPos = 0;
+
+  currentPage->elements.push_back(std::make_shared<PageImage>(image, xPos, currentPageNextY));
+  currentPageNextY += imageHeight + lineHeight;  // Add line spacing after image
 }

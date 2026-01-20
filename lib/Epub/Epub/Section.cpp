@@ -1,6 +1,7 @@
 #include "Section.h"
 
 #include <Html5Normalizer.h>
+#include <Print.h>
 #include <SDCardManager.h>
 #include <Serialization.h>
 
@@ -8,7 +9,7 @@
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {
-constexpr uint8_t SECTION_FILE_VERSION = 10;
+constexpr uint8_t SECTION_FILE_VERSION = 11;  // v11: Added inline image support
 constexpr uint32_t HEADER_SIZE = sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(bool) + sizeof(uint8_t) +
                                  sizeof(bool) + sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint16_t) +
                                  sizeof(uint32_t);
@@ -127,11 +128,23 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   const auto localPath = epub->getSpineItem(spineIndex).href;
   const auto tmpHtmlPath = epub->getCachePath() + "/.tmp_" + std::to_string(spineIndex) + ".html";
 
-  // Create cache directory if it doesn't exist
+  // Create cache directories if they don't exist
   {
     const auto sectionsDir = epub->getCachePath() + "/sections";
     SdMan.mkdir(sectionsDir.c_str());
+    const auto imagesDir = epub->getCachePath() + "/images";
+    SdMan.mkdir(imagesDir.c_str());
   }
+
+  // Derive chapter base path for resolving relative image paths
+  std::string chapterBasePath;
+  {
+    size_t lastSlash = localPath.rfind('/');
+    if (lastSlash != std::string::npos) {
+      chapterBasePath = localPath.substr(0, lastSlash + 1);
+    }
+  }
+  const std::string imageCachePath = epub->getCachePath() + "/images";
 
   // Retry logic for SD card timing issues
   bool success = false;
@@ -193,11 +206,16 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
                          viewportHeight);
   std::vector<uint32_t> lut = {};
 
+  // Create readItemFn callback for extracting images from EPUB
+  auto readItemFn = [this](const std::string& href, Print& out, size_t chunkSize) -> bool {
+    return epub->readItemContentsToStream(href, out, chunkSize);
+  };
+
   ChapterHtmlSlimParser visitor(
       parseHtmlPath, renderer, fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, hyphenation,
       viewportWidth, viewportHeight,
-      [this, &lut](std::unique_ptr<Page> page) { lut.emplace_back(this->onPageComplete(std::move(page))); },
-      progressFn);
+      [this, &lut](std::unique_ptr<Page> page) { lut.emplace_back(this->onPageComplete(std::move(page))); }, progressFn,
+      chapterBasePath, imageCachePath, readItemFn);
   success = visitor.parseAndBuildPages();
 
   SdMan.remove(tmpHtmlPath.c_str());

@@ -290,7 +290,7 @@ std::string GfxRenderer::truncatedText(const int fontId, const char* text, const
 }
 
 std::vector<std::string> GfxRenderer::breakWordWithHyphenation(const int fontId, const char* word, const int maxWidth,
-                                                                const EpdFontFamily::Style style) const {
+                                                               const EpdFontFamily::Style style) const {
   std::vector<std::string> chunks;
   if (!word || *word == '\0') return chunks;
 

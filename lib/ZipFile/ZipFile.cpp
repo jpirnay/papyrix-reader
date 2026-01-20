@@ -323,7 +323,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
     return nullptr;
   }
 
-  if (fileStat.method == MZ_NO_COMPRESSION) {
+  if (fileStat.method == 0) {  // MZ_NO_COMPRESSION = 0
     // no deflation, just read content
     const size_t dataRead = file.read(data, inflatedDataSize);
     if (!wasOpen) {
@@ -403,7 +403,7 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
   const auto deflatedDataSize = fileStat.compressedSize;
   const auto inflatedDataSize = fileStat.uncompressedSize;
 
-  if (fileStat.method == MZ_NO_COMPRESSION) {
+  if (fileStat.method == 0) {  // MZ_NO_COMPRESSION = 0
     // no deflation, just read content
     const auto buffer = static_cast<uint8_t*>(malloc(chunkSize));
     if (!buffer) {

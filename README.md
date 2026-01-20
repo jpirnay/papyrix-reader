@@ -37,7 +37,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 - [x] Saved reading position
 - [x] Book cover display
 - [x] Table of contents navigation
-- [ ] Image support within EPUB
+- [x] Image support within EPUB (JPEG/PNG)
 
 ### Text & Display
 - [x] Configurable font sizes (Small/Medium/Large)
@@ -279,9 +279,12 @@ The first time chapters of a book are loaded, they are cached to the SD card. Su
 │   ├── progress.bin     # Stores reading progress (chapter, page, etc.)
 │   ├── cover.bmp        # Book cover image (once generated)
 │   ├── book.bin         # Book metadata (title, author, spine, table of contents, etc.)
-│   └── sections/        # All chapter data is stored in the sections subdirectory
-│       ├── 0.bin        # Chapter data (screen count, all text layout info, etc.)
-│       ├── 1.bin        #     files are named by their index in the spine
+│   ├── sections/        # All chapter data is stored in the sections subdirectory
+│   │   ├── 0.bin        # Chapter data (screen count, all text layout info, etc.)
+│   │   ├── 1.bin        #     files are named by their index in the spine
+│   │   └── ...
+│   └── images/          # Cached inline images (converted to 2-bit BMP)
+│       ├── 123456.bmp   # Images named by hash of source path
 │       └── ...
 │
 ├── txt_98765432/        # Each TXT file is cached to a subdirectory named `txt_<hash>`

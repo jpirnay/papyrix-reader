@@ -5,12 +5,15 @@
 #include <climits>
 #include <functional>
 #include <memory>
+#include <string>
 
 #include "../ParsedText.h"
+#include "../blocks/ImageBlock.h"
 #include "../blocks/TextBlock.h"
 
 class Page;
 class GfxRenderer;
+class Print;
 
 #define MAX_WORD_SIZE 200
 
@@ -38,8 +41,15 @@ class ChapterHtmlSlimParser {
   uint16_t viewportWidth;
   uint16_t viewportHeight;
 
+  // Image support
+  std::string chapterBasePath;
+  std::string imageCachePath;
+  std::function<bool(const std::string&, Print&, size_t)> readItemFn;
+
   void startNewTextBlock(TextBlock::BLOCK_STYLE style);
   void makePages();
+  std::string cacheImage(const std::string& src);
+  void addImageToPage(std::shared_ptr<ImageBlock> image);
   // XML callbacks
   static void XMLCALL startElement(void* userData, const XML_Char* name, const XML_Char** atts);
   static void XMLCALL characterData(void* userData, const XML_Char* s, int len);
@@ -51,7 +61,9 @@ class ChapterHtmlSlimParser {
                                  const uint8_t paragraphAlignment, const bool hyphenation, const uint16_t viewportWidth,
                                  const uint16_t viewportHeight,
                                  const std::function<void(std::unique_ptr<Page>)>& completePageFn,
-                                 const std::function<void(int)>& progressFn = nullptr)
+                                 const std::function<void(int)>& progressFn = nullptr,
+                                 const std::string& chapterBasePath = "", const std::string& imageCachePath = "",
+                                 const std::function<bool(const std::string&, Print&, size_t)>& readItemFn = nullptr)
       : filepath(filepath),
         renderer(renderer),
         fontId(fontId),
@@ -62,7 +74,10 @@ class ChapterHtmlSlimParser {
         viewportWidth(viewportWidth),
         viewportHeight(viewportHeight),
         completePageFn(completePageFn),
-        progressFn(progressFn) {}
+        progressFn(progressFn),
+        chapterBasePath(chapterBasePath),
+        imageCachePath(imageCachePath),
+        readItemFn(readItemFn) {}
   ~ChapterHtmlSlimParser() = default;
   bool parseAndBuildPages();
   void addLineToPage(std::shared_ptr<TextBlock> line);

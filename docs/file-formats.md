@@ -146,7 +146,7 @@ if (parsedSize != fileSize) {
 
 ## `section.bin`
 
-### Version 8
+### Version 11
 
 ImHex Pattern:
 
@@ -156,7 +156,7 @@ import std.string;
 import std.core;
 
 // === Configuration ===
-#define EXPECTED_VERSION 8
+#define EXPECTED_VERSION 11
 #define MAX_STRING_LENGTH 65535
 
 // === String Structure ===
@@ -176,7 +176,8 @@ fn format_string(String s) {
 // === Page Structure ===
 
 enum StorageType : u8 {
-    PageLine = 1
+    PageLine = 1,
+    PageImage = 2
 };
 
 enum WordStyle : u8 {
@@ -203,10 +204,20 @@ struct PageLine {
   BlockStyle blockStyle;
 };
 
+struct PageImage {
+  s16 xPos;
+  s16 yPos;
+  String cachedBmpPath;  // Path to cached BMP on SD card
+  u16 width;
+  u16 height;
+};
+
 struct PageElement {
     u8 pageElementType;
     if (pageElementType == 1) {
         PageLine pageLine [[inline]];
+    } else if (pageElementType == 2) {
+        PageImage pageImage [[inline]];
     } else {
         std::error(std::format("Unknown page element type: {}", pageElementType));
     }
@@ -232,6 +243,8 @@ struct SectionBin {
     s32 fontId;
     float lineCompression;
     bool extraParagraphSpacing;
+    u8 paragraphAlignment;
+    bool hyphenation;
     u16 viewportWidth;
     u16 viewportHeight;
     u16 pageCount;

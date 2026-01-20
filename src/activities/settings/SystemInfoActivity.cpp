@@ -7,6 +7,7 @@
 #include <SDCardManager.h>
 #include <WiFi.h>
 
+#include "Battery.h"
 #include "MappedInputManager.h"
 #include "ThemeManager.h"
 #include "config.h"
@@ -69,6 +70,19 @@ void SystemInfoActivity::render() const {
   snprintf(uptimeStr, sizeof(uptimeStr), "%luh %lum %lus", hours, minutes, seconds);
   renderer.drawText(THEME.uiFontId, labelX, currentY, "Uptime:", THEME.primaryTextBlack);
   renderer.drawText(THEME.uiFontId, valueX, currentY, uptimeStr, THEME.primaryTextBlack);
+  currentY += lineHeight;
+
+  // Battery
+  const uint16_t millivolts = battery.readMillivolts();
+  char batteryStr[20];
+  if (millivolts < 3000 || millivolts > 4500) {
+    snprintf(batteryStr, sizeof(batteryStr), "-- (%umV)", millivolts);
+  } else {
+    const uint8_t percentage = BatteryMonitor::percentageFromMillivolts(millivolts);
+    snprintf(batteryStr, sizeof(batteryStr), "%u%% (%umV)", percentage, millivolts);
+  }
+  renderer.drawText(THEME.uiFontId, labelX, currentY, "Battery:", THEME.primaryTextBlack);
+  renderer.drawText(THEME.uiFontId, valueX, currentY, batteryStr, THEME.primaryTextBlack);
   currentY += lineHeight;
 
   // WiFi status

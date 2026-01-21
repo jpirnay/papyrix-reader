@@ -85,6 +85,10 @@ bool Epub::parseContentOpf(BookMetadataCache::BookMetadata& bookMetadata) {
     tocNavItem = opfParser.tocNavPath;
   }
 
+  // Capture CSS files from manifest
+  cssFiles_ = opfParser.getCssFiles();
+  Serial.printf("[%lu] [EBP] Found %d CSS files in manifest\n", millis(), static_cast<int>(cssFiles_.size()));
+
   Serial.printf("[%lu] [EBP] Successfully parsed content.opf\n", millis());
   return true;
 }
@@ -206,6 +210,46 @@ bool Epub::parseTocNavFile() const {
   return true;
 }
 
+bool Epub::parseCssFiles() {
+  if (cssFiles_.empty()) {
+    Serial.printf("[%lu] [EBP] No CSS files to parse\n", millis());
+    return true;
+  }
+
+  cssParser_.reset(new CssParser());
+
+  for (const auto& cssHref : cssFiles_) {
+    // Extract CSS file to temp location
+    const auto tmpCssPath = getCachePath() + "/.tmp_css.css";
+
+    FsFile tempCssFile;
+    if (!SdMan.openFileForWrite("EBP", tmpCssPath, tempCssFile)) {
+      Serial.printf("[%lu] [EBP] Failed to create temp CSS file\n", millis());
+      continue;
+    }
+
+    if (!readItemContentsToStream(cssHref, tempCssFile, 1024)) {
+      Serial.printf("[%lu] [EBP] Failed to extract CSS: %s\n", millis(), cssHref.c_str());
+      tempCssFile.close();
+      SdMan.remove(tmpCssPath.c_str());
+      continue;
+    }
+    tempCssFile.close();
+
+    // Parse the CSS file
+    if (!cssParser_->parseFile(tmpCssPath.c_str())) {
+      Serial.printf("[%lu] [EBP] Failed to parse CSS: %s\n", millis(), cssHref.c_str());
+    }
+
+    // Clean up temp file
+    SdMan.remove(tmpCssPath.c_str());
+  }
+
+  Serial.printf("[%lu] [EBP] Parsed CSS files, %d style rules loaded\n", millis(),
+                static_cast<int>(cssParser_->getStyleCount()));
+  return true;
+}
+
 // load in the meta data for the epub file
 bool Epub::load(const bool buildIfMissing) {
   Serial.printf("[%lu] [EBP] Loading ePub: %s\n", millis(), filepath.c_str());
@@ -248,6 +292,9 @@ bool Epub::load(const bool buildIfMissing) {
     Serial.printf("[%lu] [EBP] Could not end writing content.opf pass\n", millis());
     return false;
   }
+
+  // Parse CSS files for styling
+  parseCssFiles();
 
   // TOC Pass - try EPUB 3 nav first, fall back to NCX
   if (!bookMetadataCache->beginTocPass()) {

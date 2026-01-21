@@ -202,6 +202,12 @@ void XMLCALL ContentOpfParser::startElement(void* userData, const XML_Char* name
         Serial.printf("[%lu] [COF] Found EPUB 3 nav document: %s\n", millis(), href.c_str());
       }
     }
+
+    // Collect CSS files
+    if (mediaType.find("css") != std::string::npos) {
+      self->cssFiles_.push_back(href);
+      Serial.printf("[%lu] [COF] Found CSS file: %s\n", millis(), href.c_str());
+    }
     return;
   }
 

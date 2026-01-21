@@ -167,6 +167,37 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     }
   }
 
+  // Extract class and style attributes for CSS lookup
+  std::string classAttr;
+  std::string styleAttr;
+  if (atts != nullptr) {
+    for (int i = 0; atts[i]; i += 2) {
+      if (strcmp(atts[i], "class") == 0) {
+        classAttr = atts[i + 1];
+      } else if (strcmp(atts[i], "style") == 0) {
+        styleAttr = atts[i + 1];
+      }
+    }
+  }
+
+  // Query CSS for combined style (tag + classes + inline)
+  CssStyle cssStyle;
+  if (self->cssParser_) {
+    cssStyle = self->cssParser_->getCombinedStyle(name, classAttr);
+  }
+  // Inline styles override stylesheet rules (static method, no instance needed)
+  if (!styleAttr.empty()) {
+    cssStyle.merge(CssParser::parseInlineStyle(styleAttr));
+  }
+
+  // Apply CSS font-weight and font-style
+  if (cssStyle.hasFontWeight && cssStyle.fontWeight == CssFontWeight::Bold) {
+    self->cssBoldUntilDepth = min(self->cssBoldUntilDepth, self->depth);
+  }
+  if (cssStyle.hasFontStyle && cssStyle.fontStyle == CssFontStyle::Italic) {
+    self->cssItalicUntilDepth = min(self->cssItalicUntilDepth, self->depth);
+  }
+
   if (matches(name, HEADER_TAGS, NUM_HEADER_TAGS)) {
     self->startNewTextBlock(TextBlock::CENTER_ALIGN);
     self->boldUntilDepth = min(self->boldUntilDepth, self->depth);
@@ -174,7 +205,27 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     if (strcmp(name, "br") == 0) {
       self->startNewTextBlock(self->currentTextBlock->getStyle());
     } else {
-      self->startNewTextBlock(static_cast<TextBlock::BLOCK_STYLE>(self->config.paragraphAlignment));
+      // Determine block style: CSS text-align takes precedence
+      TextBlock::BLOCK_STYLE blockStyle = static_cast<TextBlock::BLOCK_STYLE>(self->config.paragraphAlignment);
+      if (cssStyle.hasTextAlign) {
+        switch (cssStyle.textAlign) {
+          case TextAlign::Left:
+            blockStyle = TextBlock::LEFT_ALIGN;
+            break;
+          case TextAlign::Right:
+            blockStyle = TextBlock::RIGHT_ALIGN;
+            break;
+          case TextAlign::Center:
+            blockStyle = TextBlock::CENTER_ALIGN;
+            break;
+          case TextAlign::Justify:
+            blockStyle = TextBlock::JUSTIFIED;
+            break;
+          default:
+            break;
+        }
+      }
+      self->startNewTextBlock(blockStyle);
     }
   } else if (matches(name, BOLD_TAGS, NUM_BOLD_TAGS)) {
     self->boldUntilDepth = min(self->boldUntilDepth, self->depth);
@@ -193,12 +244,16 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
     return;
   }
 
+  // Determine font style from HTML tags and CSS
+  const bool isBold = self->boldUntilDepth < self->depth || self->cssBoldUntilDepth < self->depth;
+  const bool isItalic = self->italicUntilDepth < self->depth || self->cssItalicUntilDepth < self->depth;
+
   EpdFontFamily::Style fontStyle = EpdFontFamily::REGULAR;
-  if (self->boldUntilDepth < self->depth && self->italicUntilDepth < self->depth) {
+  if (isBold && isItalic) {
     fontStyle = EpdFontFamily::BOLD_ITALIC;
-  } else if (self->boldUntilDepth < self->depth) {
+  } else if (isBold) {
     fontStyle = EpdFontFamily::BOLD;
-  } else if (self->italicUntilDepth < self->depth) {
+  } else if (isItalic) {
     fontStyle = EpdFontFamily::ITALIC;
   }
 
@@ -265,12 +320,16 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
         matches(name, BOLD_TAGS, NUM_BOLD_TAGS) || matches(name, ITALIC_TAGS, NUM_ITALIC_TAGS) || self->depth == 1;
 
     if (shouldBreakText) {
+      // Determine font style from HTML tags and CSS
+      const bool isBold = self->boldUntilDepth < self->depth || self->cssBoldUntilDepth < self->depth;
+      const bool isItalic = self->italicUntilDepth < self->depth || self->cssItalicUntilDepth < self->depth;
+
       EpdFontFamily::Style fontStyle = EpdFontFamily::REGULAR;
-      if (self->boldUntilDepth < self->depth && self->italicUntilDepth < self->depth) {
+      if (isBold && isItalic) {
         fontStyle = EpdFontFamily::BOLD_ITALIC;
-      } else if (self->boldUntilDepth < self->depth) {
+      } else if (isBold) {
         fontStyle = EpdFontFamily::BOLD;
-      } else if (self->italicUntilDepth < self->depth) {
+      } else if (isItalic) {
         fontStyle = EpdFontFamily::ITALIC;
       }
 
@@ -282,19 +341,20 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
 
   self->depth -= 1;
 
-  // Leaving skip
   if (self->skipUntilDepth == self->depth) {
     self->skipUntilDepth = INT_MAX;
   }
-
-  // Leaving bold
   if (self->boldUntilDepth == self->depth) {
     self->boldUntilDepth = INT_MAX;
   }
-
-  // Leaving italic
   if (self->italicUntilDepth == self->depth) {
     self->italicUntilDepth = INT_MAX;
+  }
+  if (self->cssBoldUntilDepth == self->depth) {
+    self->cssBoldUntilDepth = INT_MAX;
+  }
+  if (self->cssItalicUntilDepth == self->depth) {
+    self->cssItalicUntilDepth = INT_MAX;
   }
 }
 

@@ -9,7 +9,7 @@
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {
-constexpr uint8_t SECTION_FILE_VERSION = 14;  // v14: Refactored to use RenderConfig struct
+constexpr uint8_t SECTION_FILE_VERSION = 15;  // v15: Added CSS parser integration
 constexpr uint32_t HEADER_SIZE = sizeof(uint8_t) + sizeof(int) + sizeof(float) + sizeof(uint8_t) + sizeof(uint8_t) +
                                  sizeof(uint8_t) + sizeof(bool) + sizeof(bool) + sizeof(uint16_t) + sizeof(uint16_t) +
                                  sizeof(uint16_t) + sizeof(uint32_t);
@@ -205,7 +205,7 @@ bool Section::createSectionFile(const RenderConfig& config, const std::function<
   ChapterHtmlSlimParser visitor(
       parseHtmlPath, renderer, config,
       [this, &lut](std::unique_ptr<Page> page) { lut.emplace_back(this->onPageComplete(std::move(page))); }, progressFn,
-      chapterBasePath, imageCachePath, readItemFn);
+      chapterBasePath, imageCachePath, readItemFn, epub->getCssParser());
   success = visitor.parseAndBuildPages();
 
   SdMan.remove(tmpHtmlPath.c_str());

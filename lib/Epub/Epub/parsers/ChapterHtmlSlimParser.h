@@ -11,6 +11,7 @@
 #include "../RenderConfig.h"
 #include "../blocks/ImageBlock.h"
 #include "../blocks/TextBlock.h"
+#include "../css/CssParser.h"
 
 class Page;
 class GfxRenderer;
@@ -27,6 +28,8 @@ class ChapterHtmlSlimParser {
   int skipUntilDepth = INT_MAX;
   int boldUntilDepth = INT_MAX;
   int italicUntilDepth = INT_MAX;
+  int cssBoldUntilDepth = INT_MAX;
+  int cssItalicUntilDepth = INT_MAX;
   // buffer for building up words from characters, will auto break if longer than this
   // leave one char at end for null pointer
   char partWordBuffer[MAX_WORD_SIZE + 1] = {};
@@ -40,6 +43,9 @@ class ChapterHtmlSlimParser {
   std::string chapterBasePath;
   std::string imageCachePath;
   std::function<bool(const std::string&, Print&, size_t)> readItemFn;
+
+  // CSS support
+  const CssParser* cssParser_ = nullptr;
 
   void startNewTextBlock(TextBlock::BLOCK_STYLE style);
   void makePages();
@@ -55,7 +61,8 @@ class ChapterHtmlSlimParser {
                                  const std::function<void(std::unique_ptr<Page>)>& completePageFn,
                                  const std::function<void(int)>& progressFn = nullptr,
                                  const std::string& chapterBasePath = "", const std::string& imageCachePath = "",
-                                 const std::function<bool(const std::string&, Print&, size_t)>& readItemFn = nullptr)
+                                 const std::function<bool(const std::string&, Print&, size_t)>& readItemFn = nullptr,
+                                 const CssParser* cssParser = nullptr)
       : filepath(filepath),
         renderer(renderer),
         config(config),
@@ -63,7 +70,8 @@ class ChapterHtmlSlimParser {
         progressFn(progressFn),
         chapterBasePath(chapterBasePath),
         imageCachePath(imageCachePath),
-        readItemFn(readItemFn) {}
+        readItemFn(readItemFn),
+        cssParser_(cssParser) {}
   ~ChapterHtmlSlimParser() = default;
   bool parseAndBuildPages();
   void addLineToPage(std::shared_ptr<TextBlock> line);

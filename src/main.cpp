@@ -231,19 +231,19 @@ void onGoToSettings() {
 void onGoToSettingsNetLibrary() {
   exitActivity();
   enterNewActivity(new SettingsActivity(renderer, mappedInputManager, onGoHome, onGoToFileTransfer, onGoToOpdsServers,
-                                        onGoToCalibreWireless, 11));
+                                        onGoToCalibreWireless, 12));
 }
 
 void onGoToSettingsCalibreWireless() {
   exitActivity();
   enterNewActivity(new SettingsActivity(renderer, mappedInputManager, onGoHome, onGoToFileTransfer, onGoToOpdsServers,
-                                        onGoToCalibreWireless, 12));
+                                        onGoToCalibreWireless, 13));
 }
 
 void onGoToSettingsFileTransfer() {
   exitActivity();
   enterNewActivity(new SettingsActivity(renderer, mappedInputManager, onGoHome, onGoToFileTransfer, onGoToOpdsServers,
-                                        onGoToCalibreWireless, 13));
+                                        onGoToCalibreWireless, 14));
 }
 
 void onGoHome() {
@@ -371,7 +371,7 @@ void setup() {
   enterNewActivity(new BootActivity(renderer, mappedInputManager));
 
   APP_STATE.loadFromFile();
-  if (APP_STATE.openEpubPath.empty()) {
+  if (APP_STATE.openEpubPath.empty() || SETTINGS.startupBehavior == CrossPointSettings::STARTUP_HOME) {
     onGoHome();
   } else {
     // Clear app state to avoid getting into a boot loop if the epub doesn't load

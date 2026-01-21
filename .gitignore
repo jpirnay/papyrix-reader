@@ -10,3 +10,4 @@ node_modules/
 scripts/node_modules/
 tmp/*
 data/*
+crosspoint-reader/*

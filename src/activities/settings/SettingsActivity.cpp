@@ -22,8 +22,9 @@ constexpr const char* autoSleepValues[] = {"5 min", "10 min", "15 min", "30 min"
 constexpr const char* paragraphAlignmentValues[] = {"Justified", "Left", "Center", "Right"};
 constexpr const char* textLayoutValues[] = {"Compact", "Standard", "Large"};
 constexpr const char* shortPwrBtnValues[] = {"Ignore", "Sleep", "Page Turn"};
+constexpr const char* startupBehaviorValues[] = {"Last Document", "Home"};
 
-constexpr int settingsCount = 18;
+constexpr int settingsCount = 19;
 const SettingInfo settingsList[settingsCount] = {
     // Theme
     {"Theme", SettingType::THEME_SELECT, nullptr, nullptr, 0},
@@ -39,6 +40,7 @@ const SettingInfo settingsList[settingsCount] = {
     // Device Settings
     {"Pages Per Refresh", SettingType::ENUM, &CrossPointSettings::pagesPerRefresh, pagesPerRefreshValues, 5},
     {"Auto Sleep Timeout", SettingType::ENUM, &CrossPointSettings::autoSleepMinutes, autoSleepValues, 5},
+    {"Startup Behavior", SettingType::ENUM, &CrossPointSettings::startupBehavior, startupBehaviorValues, 2},
     {"Sleep Screen", SettingType::ENUM, &CrossPointSettings::sleepScreen, sleepScreenValues, 4},
     {"Short Power Button", SettingType::ENUM, &CrossPointSettings::shortPwrBtn, shortPwrBtnValues, 3},
     // Actions

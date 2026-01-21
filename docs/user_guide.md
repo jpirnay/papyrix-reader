@@ -25,7 +25,7 @@ the power button to trigger on a short press instead of a long one.
 
 Upon turning the device on for the first time, you will be placed on the **Home** screen.
 
-> **Note:** On subsequent restarts, the firmware will automatically reopen the last book you were reading.
+> **Note:** On subsequent restarts, the firmware will automatically reopen the last book you were reading (configurable via **Startup Behavior** in Settings).
 
 ---
 
@@ -155,6 +155,11 @@ The Settings screen allows you to configure the device's behavior:
 - **Sleep Timeout** (default: 10 min)
   - Options: 5 min, 10 min, 15 min, 30 min, Never
   - Time of inactivity before the device automatically sleeps
+
+- **Startup Behavior** (default: Last Document)
+  - Options: Last Document, Home
+  - **Last Document:** Resume reading the last opened book on startup
+  - **Home:** Always start at the Home screen
 
 - **File transfer**
   - Upload e-books to the device via WiFi web server

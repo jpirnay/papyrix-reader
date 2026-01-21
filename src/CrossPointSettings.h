@@ -55,6 +55,9 @@ class CrossPointSettings {
   // Short power button press actions
   enum SHORT_PWRBTN { PWRBTN_IGNORE = 0, PWRBTN_SLEEP = 1, PWRBTN_PAGE_TURN = 2 };
 
+  // Startup behavior options
+  enum STARTUP_BEHAVIOR { STARTUP_LAST_DOCUMENT = 0, STARTUP_HOME = 1 };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Status bar settings
@@ -83,6 +86,8 @@ class CrossPointSettings {
   uint8_t textAntiAliasing = 1;
   // Show inline images and covers (OFF for faster rendering)
   uint8_t showImages = 1;
+  // Startup behavior: 0 = Last Document (default), 1 = Home
+  uint8_t startupBehavior = STARTUP_LAST_DOCUMENT;
   // Theme name (loaded from /themes/<name>.theme)
   char themeName[32] = "light";
 

@@ -45,3 +45,37 @@ Header → Metrics → Unicode Intervals → Glyphs → Bitmap
 ### CJK Support
 
 CJK fonts use binary search for glyph lookup: O(log n) complexity. Text can break at any character boundary (no word-based line breaking).
+
+## CSS Parser
+
+### Pipeline
+
+```
+EPUB Load → ContentOpfParser → CssParser → ChapterHtmlSlimParser → Page
+```
+
+1. **ContentOpfParser**: Discovers CSS files in EPUB manifest (media-type contains "css")
+2. **CssParser**: Parses CSS files, builds style map keyed by selector
+3. **ChapterHtmlSlimParser**: Queries CSS for each element, applies styles during page layout
+
+### Supported Properties
+
+- **text-align** (left, right, center, justify) — Block alignment
+- **font-style** (normal, italic) — Italic text
+- **font-weight** (normal, bold, 700+) — Bold text
+- **text-indent** (px, em) — First-line indent
+- **margin-top/bottom** (em, %) — Extra line spacing
+
+### Supported Selectors
+
+- **Tag selectors**: `p`, `div`, `span`
+- **Class selectors**: `.classname`
+- **Tag.class selectors**: `p.classname`
+- **Comma-separated**: `h1, h2, h3`
+- **Inline styles**: `style="text-align: center"`
+
+### Key Files
+
+- `lib/Epub/Epub/css/CssStyle.h` — Style enums and struct
+- `lib/Epub/Epub/css/CssParser.h/cpp` — CSS file parsing
+- `lib/Epub/Epub/parsers/ChapterHtmlSlimParser.cpp` — Style application during HTML parsing

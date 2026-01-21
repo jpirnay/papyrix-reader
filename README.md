@@ -5,6 +5,7 @@
 [![Customization](https://img.shields.io/badge/docs-Customization-green)](docs/customization.md)
 [![Device Specs](https://img.shields.io/badge/docs-Device_Specs-green)](docs/device-specifications.md)
 [![File Formats](https://img.shields.io/badge/docs-File_Formats-green)](docs/file-formats.md)
+[![SSD1677 Driver](https://img.shields.io/badge/docs-SSD1677_Driver-green)](docs/ssd1677-driver.md)
 [![Webserver](https://img.shields.io/badge/docs-Webserver-green)](docs/webserver.md)
 [![Calibre](https://img.shields.io/badge/docs-Calibre_Wireless-green)](docs/calibre.md)
 
@@ -32,6 +33,7 @@ This project is **not affiliated with Xteink**; it's built as a community projec
 
 ### Reading & Format Support
 - [x] EPUB 2 and EPUB 3 parsing (nav.xhtml with NCX fallback)
+- [x] CSS stylesheet parsing (text-align, font-style, font-weight, text-indent, margins)
 - [x] XTC/XTCH native format support
 - [x] Markdown (.md, .markdown) file support with formatting
 - [x] Plain text (.txt, .text) file support
@@ -368,5 +370,9 @@ Contributions are very welcome!
 Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint-reader) by Dave Allie.
 
 X4 hardware insights from [bb_epaper](https://github.com/bitbank2/bb_epaper) by Larry Bank.
+
+Markdown parsing using [MD4C](https://github.com/mity/md4c) by Martin Mitáš.
+
+CSS parser adapted from [microreader](https://github.com/CidVonHighwind/microreader) by CidVonHighwind.
 
 **Not affiliated with Xteink or any manufacturer of the X4 hardware**.

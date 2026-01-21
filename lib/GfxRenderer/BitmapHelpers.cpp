@@ -2,17 +2,14 @@
 
 #include <cstdint>
 
-// Brightness/Contrast adjustments:
-constexpr bool USE_BRIGHTNESS = false;       // true: apply brightness/gamma adjustments
-constexpr int BRIGHTNESS_BOOST = 10;         // Brightness offset (0-50)
-constexpr bool GAMMA_CORRECTION = false;     // Gamma curve (brightens midtones)
-constexpr float CONTRAST_FACTOR = 1.15f;     // Contrast multiplier (1.0 = no change, >1 = more contrast)
+// Brightness/Contrast adjustments for e-ink display optimization:
+constexpr int BRIGHTNESS_BOOST = 10;      // Brightness offset (0-50)
+constexpr float CONTRAST_FACTOR = 1.15f;  // Contrast multiplier (1.0 = no change, >1 = more contrast)
 constexpr bool USE_NOISE_DITHERING = false;  // Hash-based noise dithering
 
 // Integer approximation of gamma correction (brightens midtones)
 // Uses a simple curve: out = 255 * sqrt(in/255) ≈ sqrt(in * 255)
 static inline int applyGamma(int gray) {
-  if (!GAMMA_CORRECTION) return gray;
   // Fast integer square root approximation for gamma ~0.5 (brightening)
   // This brightens dark/mid tones while preserving highlights
   const int product = gray * 255;
@@ -37,9 +34,8 @@ static inline int applyContrast(int gray) {
   return adjusted;
 }
 // Combined brightness/contrast/gamma adjustment
+// Always applied to optimize images for e-ink display
 int adjustPixel(int gray) {
-  if (!USE_BRIGHTNESS) return gray;
-
   // Order: contrast first, then brightness, then gamma
   gray = applyContrast(gray);
   gray += BRIGHTNESS_BOOST;

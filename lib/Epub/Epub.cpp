@@ -1,5 +1,6 @@
 #include "Epub.h"
 
+#include <BitmapHelpers.h>
 #include <CoverHelpers.h>
 #include <CrossPointSettings.h>
 #include <FsHelpers.h>
@@ -417,6 +418,25 @@ bool Epub::generateThumbBmp() const {
   // Previously failed, don't retry
   if (SdMan.exists(failedMarkerPath.c_str())) {
     return false;
+  }
+
+  // Try to generate from existing cover.bmp first (much faster than re-extracting from EPUB)
+  const auto coverPath = getCoverBmpPath();
+  if (SdMan.exists(coverPath.c_str())) {
+    Serial.printf("[%lu] [EBP] Generating thumb from cached cover.bmp\n", millis());
+    const auto thumbTempPath = thumbPath + ".tmp";
+    if (bmpTo1BitBmpScaled(coverPath.c_str(), thumbTempPath.c_str(), 240, 400)) {
+      // Atomic rename: readers see either no file or complete file
+      FsFile tempFile = SdMan.open(thumbTempPath.c_str(), O_RDWR);
+      if (tempFile) {
+        tempFile.rename(thumbPath.c_str());
+        tempFile.close();
+        Serial.printf("[%lu] [EBP] Generated thumb from cover.bmp successfully\n", millis());
+        return true;
+      }
+    }
+    SdMan.remove(thumbTempPath.c_str());
+    Serial.printf("[%lu] [EBP] Failed to generate thumb from cover.bmp, falling back to EPUB extraction\n", millis());
   }
 
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {

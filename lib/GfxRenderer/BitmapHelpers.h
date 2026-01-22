@@ -9,6 +9,11 @@ uint8_t quantizeSimple(int gray);
 uint8_t quantize1bit(int gray, int x, int y);
 int adjustPixel(int gray);
 
+// Scale down a BMP file to create a 1-bit thumbnail.
+// Uses 2x2 pixel averaging for clean downscaling with Atkinson dithering.
+// Returns true on success, false on failure.
+bool bmpTo1BitBmpScaled(const char* srcPath, const char* dstPath, int targetMaxWidth, int targetMaxHeight);
+
 // 1-bit Atkinson dithering - better quality than noise dithering for thumbnails
 // Error distribution pattern (same as 2-bit but quantizes to 2 levels):
 //     X  1/8 1/8

@@ -23,6 +23,20 @@ void HomeActivity::taskTrampoline(void* param) {
   self->displayTaskLoop();
 }
 
+void HomeActivity::coverGenTrampoline(void* param) {
+  auto* self = static_cast<HomeActivity*>(param);
+  self->coverGenTask();
+}
+
+void HomeActivity::coverGenTask() {
+  Epub epub(pendingBookPath, PAPYRIX_DIR);
+  if (epub.load(false) && epub.generateThumbBmp()) {
+    coverGenComplete = true;
+  }
+  // Block forever - onExit() will delete this task
+  vTaskSuspend(nullptr);
+}
+
 void HomeActivity::onEnter() {
   Activity::onEnter();
 
@@ -53,10 +67,23 @@ void HomeActivity::onEnter() {
         if (!epub.getAuthor().empty()) {
           lastBookAuthor = std::string(epub.getAuthor());
         }
-        // Try to generate thumbnail image for Continue Reading card
-        if (SETTINGS.showImages && epub.generateThumbBmp()) {
-          coverBmpPath = epub.getThumbBmpPath();
-          hasCoverImage = true;
+        // Try to use thumbnail image for Continue Reading card
+        if (SETTINGS.showImages) {
+          // Check if thumbnail already exists (fast path)
+          const auto thumbPath = epub.getThumbBmpPath();
+          if (SdMan.exists(thumbPath.c_str())) {
+            coverBmpPath = thumbPath;
+            hasCoverImage = true;
+          } else {
+            // Store path for async generation
+            pendingBookPath = APP_STATE.openEpubPath;
+            coverBmpPath = thumbPath;
+            // Spawn background task for cover generation
+            if (xTaskCreate(&HomeActivity::coverGenTrampoline, "CoverGen", 4096, this, 0, &coverGenTaskHandle) !=
+                pdPASS) {
+              coverGenTaskHandle = nullptr;
+            }
+          }
         }
       }
     } else if (FsHelpers::isXtcFile(lastBookTitle) || FsHelpers::isTxtFile(lastBookTitle)) {
@@ -93,6 +120,12 @@ void HomeActivity::onExit() {
   }
   vSemaphoreDelete(renderingMutex);
   renderingMutex = nullptr;
+
+  // Stop cover generation task if still running
+  if (coverGenTaskHandle) {
+    vTaskDelete(coverGenTaskHandle);
+    coverGenTaskHandle = nullptr;
+  }
 
   // Free the stored cover buffer if any
   freeCoverBuffer();
@@ -182,6 +215,12 @@ void HomeActivity::loop() {
 
 void HomeActivity::displayTaskLoop() {
   while (true) {
+    // Check if cover generation completed
+    if (coverGenComplete.exchange(false)) {
+      hasCoverImage = true;
+      updateRequired = true;
+    }
+
     if (updateRequired) {
       updateRequired = false;
       xSemaphoreTake(renderingMutex, portMAX_DELAY);

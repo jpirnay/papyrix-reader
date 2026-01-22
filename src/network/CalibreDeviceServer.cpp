@@ -1,6 +1,7 @@
 #include "CalibreDeviceServer.h"
 
 #include <Arduino.h>
+#include <FsHelpers.h>
 #include <SDCardManager.h>
 #include <time.h>
 
@@ -403,15 +404,14 @@ std::vector<CalibreBookInfo> CalibreDeviceServer::scanBooks() {
     entry.getName(name, sizeof(name));
 
     // Check if it's an EPUB
-    size_t nameLen = strlen(name);
-    if (nameLen > 5 && strcasecmp(name + nameLen - 5, ".epub") == 0) {
+    if (FsHelpers::isEpubFile(name)) {
       CalibreBookInfo info;
       info.lpath = std::string("Books/") + name;
       info.size = entry.fileSize();
 
       // Extract title from filename (remove .epub extension)
-      info.title = std::string(name, nameLen - 5);
-      info.author = "";  // Could parse EPUB metadata later
+      info.title = std::string(name, strlen(name) - 5);
+      info.author = "";
 
       books.push_back(info);
     }

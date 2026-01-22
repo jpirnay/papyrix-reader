@@ -1,5 +1,6 @@
 #include "ReaderActivity.h"
 
+#include <FsHelpers.h>
 #include <esp_heap_caps.h>
 
 #include "Epub.h"
@@ -88,7 +89,7 @@ void ReaderActivity::onSelectBookFile(const std::string& path) {
   exitActivity();
   enterNewActivity(new FullScreenMessageActivity(renderer, mappedInput, "Loading..."));
 
-  if (StringUtils::isXtcFile(path)) {
+  if (FsHelpers::isXtcFile(path)) {
     // Check if we have enough contiguous memory for XTC loading
     // After WiFi use, heap can be fragmented even with plenty of free memory
     const size_t largestBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
@@ -119,7 +120,7 @@ void ReaderActivity::onSelectBookFile(const std::string& path) {
       delay(2000);
       onGoToFileSelection();
     }
-  } else if (StringUtils::isTxtFile(path)) {
+  } else if (FsHelpers::isTxtFile(path)) {
     // Load TXT file
     auto txt = loadTxt(path);
     if (txt) {
@@ -131,7 +132,7 @@ void ReaderActivity::onSelectBookFile(const std::string& path) {
       delay(2000);
       onGoToFileSelection();
     }
-  } else if (StringUtils::isMarkdownFile(path)) {
+  } else if (FsHelpers::isMarkdownFile(path)) {
     // Load Markdown file
     auto markdown = loadMarkdown(path);
     if (markdown) {
@@ -212,21 +213,21 @@ void ReaderActivity::onEnter() {
 
   currentBookPath = initialBookPath;
 
-  if (StringUtils::isXtcFile(initialBookPath)) {
+  if (FsHelpers::isXtcFile(initialBookPath)) {
     auto xtc = loadXtc(initialBookPath);
     if (!xtc) {
       onGoBack();
       return;
     }
     onGoToXtcReader(std::move(xtc));
-  } else if (StringUtils::isTxtFile(initialBookPath)) {
+  } else if (FsHelpers::isTxtFile(initialBookPath)) {
     auto txt = loadTxt(initialBookPath);
     if (!txt) {
       onGoBack();
       return;
     }
     onGoToTxtReader(std::move(txt));
-  } else if (StringUtils::isMarkdownFile(initialBookPath)) {
+  } else if (FsHelpers::isMarkdownFile(initialBookPath)) {
     auto markdown = loadMarkdown(initialBookPath);
     if (!markdown) {
       onGoBack();

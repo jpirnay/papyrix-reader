@@ -1,19 +1,12 @@
 #pragma once
 
-#include <algorithm>
+#include <FsHelpers.h>
+
 #include <string>
 
 class GfxRenderer;
 
 namespace CoverHelpers {
-
-// Case-insensitive extension check
-inline bool hasExtension(const std::string& path, const std::string& ext) {
-  if (path.length() < ext.length()) return false;
-  std::string pathExt = path.substr(path.length() - ext.length());
-  std::transform(pathExt.begin(), pathExt.end(), pathExt.begin(), ::tolower);
-  return pathExt == ext;
-}
 
 struct CenteredRect {
   int x;

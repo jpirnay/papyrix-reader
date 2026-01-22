@@ -60,7 +60,7 @@ void FileSelectionActivity::loadFiles() {
       files.emplace_back(std::string(name) + "/");
     } else {
       auto filename = std::string(name);
-      if (StringUtils::isSupportedBookFile(filename)) {
+      if (FsHelpers::isSupportedBookFile(filename)) {
         files.emplace_back(filename);
       }
     }

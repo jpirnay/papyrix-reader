@@ -65,7 +65,7 @@ void SleepActivity::renderCustomSleepScreen() const {
         continue;
       }
 
-      if (filename.substr(filename.length() - 4) != ".bmp") {
+      if (!FsHelpers::isBmpFile(filename)) {
         Serial.printf("[%lu] [SLP] Skipping non-.bmp file name: %s\n", millis(), name);
         file.close();
         continue;
@@ -167,7 +167,7 @@ void SleepActivity::renderCoverSleepScreen() const {
   std::string coverBmpPath;
 
   // Check if the current book is XTC, TXT, or EPUB
-  if (StringUtils::isXtcFile(APP_STATE.openEpubPath)) {
+  if (FsHelpers::isXtcFile(APP_STATE.openEpubPath)) {
     // Handle XTC file
     Xtc lastXtc(APP_STATE.openEpubPath, PAPYRIX_DIR);
     if (!lastXtc.load()) {
@@ -181,7 +181,7 @@ void SleepActivity::renderCoverSleepScreen() const {
     }
 
     coverBmpPath = lastXtc.getCoverBmpPath();
-  } else if (StringUtils::isTxtFile(APP_STATE.openEpubPath)) {
+  } else if (FsHelpers::isTxtFile(APP_STATE.openEpubPath)) {
     // Handle TXT file
     Txt lastTxt(APP_STATE.openEpubPath, PAPYRIX_DIR);
     if (!lastTxt.load()) {

@@ -3,6 +3,7 @@
 #include <Bitmap.h>
 #include <CoverHelpers.h>
 #include <Epub.h>
+#include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <SDCardManager.h>
 
@@ -42,7 +43,7 @@ void HomeActivity::onEnter() {
     }
 
     // Check file extension and try to load metadata
-    if (StringUtils::isEpubFile(lastBookTitle)) {
+    if (FsHelpers::isEpubFile(lastBookTitle)) {
       // Always try to load EPUB metadata for home screen display
       Epub epub(APP_STATE.openEpubPath, PAPYRIX_DIR);
       if (epub.load(false)) {
@@ -58,7 +59,7 @@ void HomeActivity::onEnter() {
           hasCoverImage = true;
         }
       }
-    } else if (StringUtils::isXtcFile(lastBookTitle) || StringUtils::isTxtFile(lastBookTitle)) {
+    } else if (FsHelpers::isXtcFile(lastBookTitle) || FsHelpers::isTxtFile(lastBookTitle)) {
       // Strip known extensions from non-EPUB files
       const size_t dotPos = lastBookTitle.find_last_of('.');
       if (dotPos != std::string::npos) {

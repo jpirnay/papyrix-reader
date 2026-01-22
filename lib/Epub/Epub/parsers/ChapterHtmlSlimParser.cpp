@@ -509,12 +509,8 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
   }
 
   // Determine format from extension
-  std::string srcLower = src;
-  for (char& c : srcLower) {
-    if (c >= 'A' && c <= 'Z') c += 32;
-  }
-  const bool isJpeg = srcLower.find(".jpg") != std::string::npos || srcLower.find(".jpeg") != std::string::npos;
-  const bool isPng = srcLower.find(".png") != std::string::npos;
+  const bool isJpeg = FsHelpers::isJpegFile(src);
+  const bool isPng = FsHelpers::isPngFile(src);
 
   if (!isJpeg && !isPng) {
     Serial.printf("[%lu] [EHP] Unsupported image format: %s\n", millis(), src.c_str());

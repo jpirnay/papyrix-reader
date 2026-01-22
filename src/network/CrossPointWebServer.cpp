@@ -208,7 +208,7 @@ void CrossPointWebServer::scanFiles(const char* path, const std::function<void(F
         info.isEpub = false;
       } else {
         info.size = file.size();
-        info.isEpub = StringUtils::isEpubFile(std::string(info.name.c_str()));
+        info.isEpub = FsHelpers::isEpubFile(info.name.c_str());
       }
 
       callback(info);

@@ -97,7 +97,7 @@ std::string findCoverImage(const std::string& dirPath, const std::string& baseNa
 
 bool convertImageToBmp(const std::string& inputPath, const std::string& outputPath, const char* logTag) {
   // Check if it's a BMP file (just copy)
-  if (hasExtension(inputPath, ".bmp")) {
+  if (FsHelpers::isBmpFile(inputPath)) {
     FsFile src, dst;
     if (!SdMan.openFileForRead(logTag, inputPath, src)) {
       Serial.printf("[%lu] [%s] Failed to open source BMP\n", millis(), logTag);
@@ -122,7 +122,7 @@ bool convertImageToBmp(const std::string& inputPath, const std::string& outputPa
   }
 
   // Check if it's a PNG file
-  if (hasExtension(inputPath, ".png")) {
+  if (FsHelpers::isPngFile(inputPath)) {
     FsFile pngFile;
     if (!SdMan.openFileForRead(logTag, inputPath, pngFile)) {
       Serial.printf("[%lu] [%s] Failed to open PNG file\n", millis(), logTag);

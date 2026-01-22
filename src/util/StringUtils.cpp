@@ -2,8 +2,6 @@
 
 #include <Utf8.h>
 
-#include <cstring>
-
 namespace StringUtils {
 
 std::string sanitizeFilename(const std::string& name, size_t maxLength) {
@@ -35,38 +33,6 @@ std::string sanitizeFilename(const std::string& name, size_t maxLength) {
   }
 
   return result.empty() ? "book" : result;
-}
-
-bool checkFileExtension(const std::string& fileName, const char* extension) {
-  if (fileName.length() < strlen(extension)) {
-    return false;
-  }
-
-  const std::string fileExt = fileName.substr(fileName.length() - strlen(extension));
-  for (size_t i = 0; i < fileExt.length(); i++) {
-    if (tolower(fileExt[i]) != tolower(extension[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool isEpubFile(const std::string& path) { return checkFileExtension(path, ".epub"); }
-
-bool isXtcFile(const std::string& path) {
-  return checkFileExtension(path, ".xtc") || checkFileExtension(path, ".xtch");
-}
-
-bool isTxtFile(const std::string& path) {
-  return checkFileExtension(path, ".txt") || checkFileExtension(path, ".text");
-}
-
-bool isMarkdownFile(const std::string& path) {
-  return checkFileExtension(path, ".md") || checkFileExtension(path, ".markdown");
-}
-
-bool isSupportedBookFile(const std::string& path) {
-  return isEpubFile(path) || isXtcFile(path) || isTxtFile(path) || isMarkdownFile(path);
 }
 
 size_t utf8RemoveLastChar(std::string& str) { return ::utf8RemoveLastChar(str); }

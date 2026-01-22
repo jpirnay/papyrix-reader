@@ -435,7 +435,7 @@ bool Epub::generateThumbBmp() const {
     return false;
   }
 
-  if (CoverHelpers::hasExtension(coverImageHref, ".jpg") || CoverHelpers::hasExtension(coverImageHref, ".jpeg")) {
+  if (FsHelpers::isJpegFile(coverImageHref)) {
     Serial.printf("[%lu] [EBP] Generating 1-bit thumb BMP from JPG cover image\n", millis());
     const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
 
@@ -479,7 +479,7 @@ bool Epub::generateThumbBmp() const {
   }
 
   // Handle PNG cover images for thumbnails
-  if (CoverHelpers::hasExtension(coverImageHref, ".png")) {
+  if (FsHelpers::isPngFile(coverImageHref)) {
     Serial.printf("[%lu] [EBP] Generating thumb BMP from PNG cover image\n", millis());
     const auto coverPngTempPath = getCachePath() + "/.cover.png";
 
@@ -549,7 +549,7 @@ bool Epub::generateCoverBmp() const {
     return false;
   }
 
-  if (CoverHelpers::hasExtension(coverImageHref, ".jpg") || CoverHelpers::hasExtension(coverImageHref, ".jpeg")) {
+  if (FsHelpers::isJpegFile(coverImageHref)) {
     Serial.printf("[%lu] [EBP] Generating BMP from JPG cover image\n", millis());
     const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
 
@@ -588,7 +588,7 @@ bool Epub::generateCoverBmp() const {
   }
 
   // Handle PNG cover images
-  if (CoverHelpers::hasExtension(coverImageHref, ".png")) {
+  if (FsHelpers::isPngFile(coverImageHref)) {
     Serial.printf("[%lu] [EBP] Generating BMP from PNG cover image\n", millis());
     const auto coverPngTempPath = getCachePath() + "/.cover.png";
 

@@ -1,5 +1,48 @@
 
 
+## v0.18.2 (2026-01-23)
+
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Cache themes for instant switching and defer font loading [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Optimize section creation with word width cache and greedy line breaking [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  GfxRenderer: Fall back to space width for missing typographic spaces [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v0.18.1 (2026-01-22)
+
+*  BitmapHelpers: Increase contrast and make gamma correction optional [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  HomeActivity: Generate cover thumbnails asynchronously [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Restructure flat list into category-based sub-UIs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix USB boot detection by releasing GPIO hold after deep sleep [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  HomeActivity: Fix white-on-white cover fallback and add atomic thumbnail generation [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Generate thumbnails from cached cover.bmp when available [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v0.18.0 (2026-01-22)
+
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add Markdown format support with MD4C parser [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Scripts: Add variable font support and preview to font converter [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Add CSS parser for stylesheet-based text styling [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update docs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Text: Replace line breaking with Knuth-Plass algorithm [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Add cover dithering toggle for 1-bit BMP output [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Covers: Add PNG support, case-insensitive extensions, shared helpers [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  FsHelpers: Consolidate file type helpers from StringUtils and CoverHelpers [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix LittleFS/SdFat FILE_READ macro redefinition warnings [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v0.17.0 (2026-01-21)
+
+*  Update CHANGELOG.md [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add glyph cache and enable image gamma/contrast enhancement [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Optimize spine-to-TOC mapping from O(n²) to O(n) [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add Text Layout presets for paragraph indentation and spacing [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Refactor rendering parameters into RenderConfig struct [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add startup behavior setting to choose between home screen and last document [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v0.16.0 (2026-01-21)
 
 *  Update changelog [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]

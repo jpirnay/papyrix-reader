@@ -231,14 +231,16 @@ struct WebServerView {
   char ipAddress[MAX_IP_LEN] = {0};
   uint8_t clientCount = 0;
   bool serverRunning = false;
+  bool isApMode = false;
   bool needsRender = true;
 
-  void setServerInfo(const char* ap_ssid, const char* ip) {
+  void setServerInfo(const char* ap_ssid, const char* ip, bool apMode) {
     strncpy(ssid, ap_ssid, SSID_MAX_LEN - 1);
     ssid[SSID_MAX_LEN - 1] = '\0';
     strncpy(ipAddress, ip, MAX_IP_LEN - 1);
     ipAddress[MAX_IP_LEN - 1] = '\0';
     serverRunning = true;
+    isApMode = apMode;
     needsRender = true;
   }
 

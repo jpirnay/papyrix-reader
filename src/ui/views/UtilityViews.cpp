@@ -74,7 +74,7 @@ void render(const GfxRenderer& r, const Theme& t, const KeyboardView& v) {
   const int keyboardY = inputY + inputH + 20;
   keyboard(r, t, keyboardY, v.keyboard);
 
-  buttonBar(r, t, "Back", "Select", "", "");
+  buttonBar(r, t, "Back", "Select", "<", ">");
 
   r.displayBuffer();
 }

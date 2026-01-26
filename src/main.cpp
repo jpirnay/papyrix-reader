@@ -37,6 +37,7 @@
 #include "states/ErrorState.h"
 #include "states/FileListState.h"
 #include "states/HomeState.h"
+#include "states/NetworkState.h"
 #include "states/ReaderState.h"
 #include "states/SettingsState.h"
 #include "states/SleepState.h"
@@ -79,6 +80,7 @@ static papyrix::HomeState homeState(renderer);
 static papyrix::FileListState fileListState(renderer);
 static papyrix::ReaderState readerState(renderer);
 static papyrix::SettingsState settingsState(renderer);
+static papyrix::NetworkState networkState(renderer);
 static papyrix::SleepState sleepState(renderer);
 static papyrix::ErrorState errorState(renderer);
 static papyrix::StateMachine stateMachine;
@@ -328,6 +330,7 @@ void initUIMode() {
   stateMachine.registerState(&fileListState);
   stateMachine.registerState(&readerState);
   stateMachine.registerState(&settingsState);
+  stateMachine.registerState(&networkState);
   stateMachine.registerState(&sleepState);
   stateMachine.registerState(&errorState);
 

@@ -8,6 +8,13 @@
 namespace papyrix {
 namespace drivers {
 
+// WiFi network info from scan (fixed-size, no heap)
+struct WifiNetwork {
+  char ssid[33];  // 32 chars + null
+  int8_t rssi;
+  bool secured;
+};
+
 // Network driver - ONLY used for book sync (Calibre, OPDS, HTTP transfer)
 // WiFi fragments heap - device must restart after any network use
 class Network {
@@ -30,9 +37,22 @@ class Network {
   // Get IP address as string
   void getIpAddress(char* buffer, size_t bufferSize) const;
 
+  // WiFi scanning
+  Result<void> startScan();
+  bool isScanComplete() const;
+  int getScanResults(WifiNetwork* out, int maxCount);
+
+  // Access Point mode
+  Result<void> startAP(const char* ssid, const char* password = nullptr);
+  void stopAP();
+  bool isAPMode() const { return apMode_; }
+  void getAPIP(char* buffer, size_t bufferSize) const;
+
  private:
   bool initialized_ = false;
   bool connected_ = false;
+  bool apMode_ = false;
+  bool scanInProgress_ = false;
 };
 
 }  // namespace drivers

@@ -28,6 +28,10 @@ const char* errorToString(Error e) {
       return "Out of memory";
     case Error::InvalidState:
       return "Invalid state";
+    case Error::InvalidOperation:
+      return "Invalid operation";
+    case Error::IOError:
+      return "I/O error";
     case Error::Timeout:
       return "Timeout";
   }

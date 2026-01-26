@@ -22,6 +22,7 @@ SettingsState::SettingsState(GfxRenderer& renderer)
       goHome_(false),
       goNetwork_(false),
       themeWasChanged_(false),
+      returnScreen_(SettingsScreen::Menu),
       pendingAction_(0),
       infoView_{} {}
 
@@ -30,9 +31,14 @@ SettingsState::~SettingsState() = default;
 void SettingsState::enter(Core& core) {
   Serial.println("[SETTINGS] Entering");
   core_ = &core;  // Store for helper methods
-  currentScreen_ = SettingsScreen::Menu;
-  menuView_.selected = 0;
-  menuView_.needsRender = true;
+  currentScreen_ = returnScreen_;
+  returnScreen_ = SettingsScreen::Menu;  // Reset for next normal entry
+  if (currentScreen_ == SettingsScreen::Menu) {
+    menuView_.selected = 0;
+    menuView_.needsRender = true;
+  } else if (currentScreen_ == SettingsScreen::Tools) {
+    toolsView_.needsRender = true;
+  }
   needsRender_ = true;
   goHome_ = false;
   goNetwork_ = false;
@@ -568,16 +574,19 @@ void SettingsState::executeToolsAction(int action, Core& core) {
   switch (action) {
     case 0:  // File Transfer
       // TODO: Transition to file transfer mode (CrossPoint web server)
+      returnScreen_ = currentScreen_;
       goNetwork_ = true;
       break;
 
     case 1:  // Net Library
       // TODO: Transition to OPDS library browser
+      returnScreen_ = currentScreen_;
       goNetwork_ = true;
       break;
 
     case 2:  // Calibre Wireless
       // TODO: Transition to Calibre connection
+      returnScreen_ = currentScreen_;
       goNetwork_ = true;
       break;
 

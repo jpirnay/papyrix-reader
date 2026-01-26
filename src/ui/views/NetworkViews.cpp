@@ -1,8 +1,40 @@
 #include "NetworkViews.h"
 
+#include <qrcode.h>
+
 #include <cstdio>
 
 namespace ui {
+
+namespace {
+
+constexpr int QR_VERSION = 4;
+constexpr int QR_MODULES = 4 * QR_VERSION + 17;  // QR version formula
+constexpr int QR_MODULE_SIZE = 6;
+constexpr int QR_PADDING = 6;
+
+void drawQRCode(const GfxRenderer& r, int x, int y, const char* data, bool fgBlack) {
+  QRCode qrcode;
+  uint8_t qrcodeData[qrcode_getBufferSize(QR_VERSION)];
+  qrcode_initText(&qrcode, qrcodeData, QR_VERSION, ECC_LOW, data);
+
+  constexpr int moduleSize = QR_MODULE_SIZE;
+  const int qrSize = qrcode.size * moduleSize;
+
+  // Draw background with padding
+  r.fillRect(x - QR_PADDING, y - QR_PADDING, qrSize + QR_PADDING * 2, qrSize + QR_PADDING * 2, !fgBlack);
+
+  // Draw QR modules
+  for (uint8_t row = 0; row < qrcode.size; row++) {
+    for (uint8_t col = 0; col < qrcode.size; col++) {
+      if (qrcode_getModule(&qrcode, col, row)) {
+        r.fillRect(x + col * moduleSize, y + row * moduleSize, moduleSize, moduleSize, fgBlack);
+      }
+    }
+  }
+}
+
+}  // namespace
 
 // Static definitions
 constexpr const char* const NetworkModeView::ITEMS[];
@@ -22,10 +54,8 @@ void render(const GfxRenderer& r, const Theme& t, const NetworkModeView& v) {
   const int descY = startY + 2 * (t.itemHeight + 20) + 40;
   if (v.selected == 0) {
     centeredText(r, t, descY, "Connect to existing WiFi");
-    centeredText(r, t, descY + 25, "for Calibre or OPDS");
   } else {
     centeredText(r, t, descY, "Create WiFi hotspot");
-    centeredText(r, t, descY + 25, "for file transfer via browser");
   }
 
   buttonBar(r, t, "Back", "Select", "", "");
@@ -128,33 +158,41 @@ void render(const GfxRenderer& r, const Theme& t, const WebServerView& v) {
 
   title(r, t, t.screenMarginTop, "Web Server");
 
-  const int lineHeight = r.getLineHeight(t.uiFontId) + 10;
-  const int startY = 80;
-
   if (v.serverRunning) {
-    int currentY = startY;
-    // SSID
-    twoColumnRow(r, t, currentY, "Network:", v.ssid);
-    currentY += lineHeight;
-
-    // IP Address (web access URL)
+    // Build URL string
     char urlStr[32];
-    snprintf(urlStr, sizeof(urlStr), "http://%s", v.ipAddress);
-    twoColumnRow(r, t, currentY, "URL:", urlStr);
-    currentY += lineHeight;
+    snprintf(urlStr, sizeof(urlStr), "http://%s/", v.ipAddress);
 
-    // Client count
-    char clientStr[8];
-    snprintf(clientStr, sizeof(clientStr), "%d", v.clientCount);
-    twoColumnRow(r, t, currentY, "Clients:", clientStr);
-    currentY += lineHeight;
+    const int screenWidth = r.getScreenWidth();
+    constexpr int qrSize = QR_MODULES * QR_MODULE_SIZE + QR_PADDING * 2;
 
-    // Instructions
-    currentY += 30;
-    centeredText(r, t, currentY, "Open URL in browser to");
-    centeredText(r, t, currentY + 25, "transfer files");
+    if (v.isApMode) {
+      // AP mode: WiFi QR centered, AP name and URL as text below
+      char wifiQR[64];
+      snprintf(wifiQR, sizeof(wifiQR), "WIFI:S:%s;;", v.ssid);
+
+      const int qrX = (screenWidth - qrSize) / 2;
+      const int qrY = 80;
+
+      drawQRCode(r, qrX + QR_PADDING, qrY + QR_PADDING, wifiQR, t.primaryTextBlack);
+
+      const int labelY = qrY + qrSize + 15;
+      centeredText(r, t, labelY, v.ssid);
+      centeredText(r, t, labelY + 30, urlStr);
+    } else {
+      // STA mode: show single URL QR code centered
+      const int qrX = (screenWidth - qrSize) / 2;
+      const int qrY = 80;
+
+      drawQRCode(r, qrX + QR_PADDING, qrY + QR_PADDING, urlStr, t.primaryTextBlack);
+
+      // Label and network info below
+      const int labelY = qrY + qrSize + 15;
+      centeredText(r, t, labelY, urlStr);
+      centeredText(r, t, labelY + 30, v.ssid);
+    }
   } else {
-    centeredText(r, t, startY + 100, "Server stopped");
+    centeredText(r, t, 180, "Server stopped");
   }
 
   buttonBar(r, t, "Stop", "", "", "");

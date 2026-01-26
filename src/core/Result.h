@@ -26,6 +26,8 @@ enum class Error : uint8_t {
 
   // Generic
   InvalidState,
+  InvalidOperation,
+  IOError,
   Timeout,
 };
 

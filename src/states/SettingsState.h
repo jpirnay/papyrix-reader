@@ -38,6 +38,7 @@ class SettingsState : public State {
   bool goHome_;
   bool goNetwork_;
   bool themeWasChanged_;
+  SettingsScreen returnScreen_;  // Screen to return to after Network mode
 
   // Pending action for confirmation dialog
   // 0=none, 10=Clear Book Cache, 11=Clear Device Storage, 12=Factory Reset

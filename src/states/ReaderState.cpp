@@ -469,7 +469,7 @@ void ReaderState::renderCachedPage(Core& core) {
       if (!pageIsCached) {
         // Current page not cached - show "Indexing..." and create/extend
         renderer_.clearScreen(theme.backgroundColor);
-        ui::overlayBox(renderer_, theme, core.settings.getReaderFontId(theme), 50, "Indexing...");
+        ui::centeredMessage(renderer_, theme, core.settings.getReaderFontId(theme), "Indexing...");
         renderer_.displayBuffer();
 
         createOrExtendCache(core);

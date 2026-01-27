@@ -71,9 +71,23 @@ bool PageCache::loadLut(std::vector<uint32_t>& lut) {
     return false;
   }
 
+  const size_t fileSize = file_.size();
+  if (fileSize < HEADER_SIZE) {
+    Serial.printf("[CACHE] File too small: %zu (need %u)\n", fileSize, HEADER_SIZE);
+    file_.close();
+    return false;
+  }
+
   // Read lutOffset from header
   file_.seek(HEADER_SIZE - 4);
   serialization::readPod(file_, lutOffset_);
+
+  // Validate lutOffset before seeking
+  if (lutOffset_ < HEADER_SIZE || lutOffset_ >= fileSize) {
+    Serial.printf("[CACHE] Invalid lutOffset: %u (file size: %zu)\n", lutOffset_, fileSize);
+    file_.close();
+    return false;
+  }
 
   // Read pageCount from header
   file_.seek(HEADER_SIZE - 4 - 1 - 2);

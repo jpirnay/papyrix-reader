@@ -3,11 +3,15 @@
 #include <Arduino.h>
 #include <GfxRenderer.h>
 #include <Xtc/XtcParser.h>
+#include <esp_task_wdt.h>
 
 #include <cstdlib>
 #include <cstring>
 
 namespace papyrix {
+
+constexpr uint16_t MAX_PAGE_WIDTH = 2048;
+constexpr uint16_t MAX_PAGE_HEIGHT = 2048;
 
 XtcPageRenderer::XtcPageRenderer(GfxRenderer& renderer) : renderer_(renderer) {}
 
@@ -22,7 +26,7 @@ XtcPageRenderer::RenderResult XtcPageRenderer::render(xtc::XtcParser& parser, ui
   const uint16_t pageHeight = parser.getHeight();
   const uint8_t bitDepth = parser.getBitDepth();
 
-  if (pageWidth == 0 || pageHeight == 0) {
+  if (pageWidth == 0 || pageHeight == 0 || pageWidth > MAX_PAGE_WIDTH || pageHeight > MAX_PAGE_HEIGHT) {
     Serial.println("[XTC] Invalid page dimensions");
     return RenderResult::InvalidDimensions;
   }
@@ -139,6 +143,7 @@ XtcPageRenderer::RenderResult XtcPageRenderer::render(xtc::XtcParser& parser, ui
           renderer_.drawPixel(x, y, false);
         }
       }
+      if (y % 100 == 0) esp_task_wdt_reset();
     }
     renderer_.copyGrayscaleLsbBuffers();
 
@@ -151,6 +156,7 @@ XtcPageRenderer::RenderResult XtcPageRenderer::render(xtc::XtcParser& parser, ui
           renderer_.drawPixel(x, y, false);
         }
       }
+      if (y % 100 == 0) esp_task_wdt_reset();
     }
     renderer_.copyGrayscaleMsbBuffers();
 
@@ -165,6 +171,7 @@ XtcPageRenderer::RenderResult XtcPageRenderer::render(xtc::XtcParser& parser, ui
           renderer_.drawPixel(x, y, true);
         }
       }
+      if (y % 100 == 0) esp_task_wdt_reset();
     }
 
     renderer_.cleanupGrayscaleWithFrameBuffer();

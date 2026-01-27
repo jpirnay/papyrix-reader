@@ -98,6 +98,12 @@ void XMLCALL TocNcxParser::startElement(void* userData, const XML_Char* name, co
 
   // Handles both top-level and nested navPoints
   if ((self->state == IN_NAV_MAP || self->state == IN_NAV_POINT) && strcmp(name, "navPoint") == 0) {
+    // Prevent stack overflow from deeply nested NCX
+    if (self->currentDepth >= MAX_NCX_DEPTH) {
+      XML_StopParser(self->parser, XML_FALSE);
+      return;
+    }
+
     self->state = IN_NAV_POINT;
     self->currentDepth++;
 
@@ -130,7 +136,14 @@ void XMLCALL TocNcxParser::startElement(void* userData, const XML_Char* name, co
 void XMLCALL TocNcxParser::characterData(void* userData, const XML_Char* s, const int len) {
   auto* self = static_cast<TocNcxParser*>(userData);
   if (self->state == IN_NAV_LABEL_TEXT) {
-    self->currentLabel.append(s, len);
+    if (self->currentLabel.size() + static_cast<size_t>(len) <= MAX_LABEL_LENGTH) {
+      self->currentLabel.append(s, len);
+    } else if (self->currentLabel.size() < MAX_LABEL_LENGTH) {
+      // Truncate at limit
+      const size_t remaining = MAX_LABEL_LENGTH - self->currentLabel.size();
+      self->currentLabel.append(s, remaining);
+      Serial.printf("[TOC] Label truncated at %zu bytes\n", MAX_LABEL_LENGTH);
+    }
   }
 }
 

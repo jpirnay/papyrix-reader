@@ -309,12 +309,30 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
 
   if (oneBit) {
     // For 1-bit output, use Atkinson dithering for better quality
-    atkinson1BitDitherer = new Atkinson1BitDitherer(outWidth);
+    atkinson1BitDitherer = new (std::nothrow) Atkinson1BitDitherer(outWidth);
+    if (!atkinson1BitDitherer) {
+      Serial.printf("[%lu] [JPG] Failed to allocate 1-bit ditherer\n", millis());
+      free(mcuRowBuffer);
+      free(rowBuffer);
+      return false;
+    }
   } else if (!USE_8BIT_OUTPUT) {
     if (USE_ATKINSON) {
-      atkinsonDitherer = new AtkinsonDitherer(outWidth);
+      atkinsonDitherer = new (std::nothrow) AtkinsonDitherer(outWidth);
+      if (!atkinsonDitherer) {
+        Serial.printf("[%lu] [JPG] Failed to allocate Atkinson ditherer\n", millis());
+        free(mcuRowBuffer);
+        free(rowBuffer);
+        return false;
+      }
     } else if (USE_FLOYD_STEINBERG) {
-      fsDitherer = new FloydSteinbergDitherer(outWidth);
+      fsDitherer = new (std::nothrow) FloydSteinbergDitherer(outWidth);
+      if (!fsDitherer) {
+        Serial.printf("[%lu] [JPG] Failed to allocate Floyd-Steinberg ditherer\n", millis());
+        free(mcuRowBuffer);
+        free(rowBuffer);
+        return false;
+      }
     }
   }
 

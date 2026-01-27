@@ -61,6 +61,12 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   auto* self = static_cast<ChapterHtmlSlimParser*>(userData);
   (void)atts;
 
+  // Prevent stack overflow from deeply nested XML
+  if (self->depth >= MAX_XML_DEPTH) {
+    XML_StopParser(self->xmlParser_, XML_FALSE);
+    return;
+  }
+
   // Middle of skip
   if (self->skipUntilDepth < self->depth) {
     self->depth += 1;

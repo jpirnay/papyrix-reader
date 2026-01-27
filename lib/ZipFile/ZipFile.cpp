@@ -366,6 +366,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
     if (!success) {
       Serial.printf("[%lu] [ZIP] Failed to inflate file\n", millis());
       free(data);
+      if (!wasOpen) close();
       return nullptr;
     }
 

@@ -18,6 +18,7 @@ class GfxRenderer;
 class Print;
 
 #define MAX_WORD_SIZE 200
+constexpr int MAX_XML_DEPTH = 100;
 
 class ChapterHtmlSlimParser {
   const std::string& filepath;

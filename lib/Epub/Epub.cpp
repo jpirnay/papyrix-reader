@@ -3,8 +3,7 @@
 #include <CoverHelpers.h>
 #include <FsHelpers.h>
 #include <HardwareSerial.h>
-#include <JpegToBmpConverter.h>
-#include <PngToBmpConverter.h>
+#include <ImageConverter.h>
 #include <SDCardManager.h>
 #include <ZipFile.h>
 
@@ -488,118 +487,62 @@ bool Epub::generateThumbBmp() const {
     return false;
   }
 
-  if (FsHelpers::isJpegFile(coverImageHref)) {
-    Serial.printf("[%lu] [EBP] Generating 1-bit thumb BMP from JPG cover image\n", millis());
-    const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
-    const auto thumbTempPath = thumbPath + ".tmp";
-
-    FsFile coverJpg;
-    if (!SdMan.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
-      return false;
+  // Check if format is supported
+  if (!ImageConverterFactory::isSupported(coverImageHref)) {
+    Serial.printf("[%lu] [EBP] Unsupported cover image format for thumbnail\n", millis());
+    // Create failure marker so we don't retry
+    FsFile marker;
+    if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
+      marker.close();
     }
-    if (!readItemContentsToStream(coverImageHref, coverJpg, 1024)) {
-      coverJpg.close();
-      return false;
-    }
-    coverJpg.close();
-
-    if (!SdMan.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
-      return false;
-    }
-
-    FsFile thumbBmp;
-    if (!SdMan.openFileForWrite("EBP", thumbTempPath, thumbBmp)) {
-      coverJpg.close();
-      return false;
-    }
-    // Use 1-bit conversion at thumbnail size for fast home screen rendering
-    const bool success =
-        JpegToBmpConverter::jpegFileTo1BitBmpStreamWithSize(coverJpg, thumbBmp, THUMB_WIDTH, THUMB_HEIGHT);
-    coverJpg.close();
-    thumbBmp.close();
-    SdMan.remove(coverJpgTempPath.c_str());
-
-    if (success) {
-      // Atomic rename: readers see either no file or complete file
-      FsFile tempFile = SdMan.open(thumbTempPath.c_str(), O_RDWR);
-      if (tempFile) {
-        tempFile.rename(thumbPath.c_str());
-        tempFile.close();
-      }
-    } else {
-      Serial.printf("[%lu] [EBP] Failed to generate thumb BMP from JPG cover image\n", millis());
-      SdMan.remove(thumbTempPath.c_str());
-      // Create failure marker so we don't retry
-      FsFile marker;
-      if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-        marker.close();
-      }
-    }
-    Serial.printf("[%lu] [EBP] Generated thumb BMP from JPG cover image, success: %s\n", millis(),
-                  success ? "yes" : "no");
-    return success;
+    return false;
   }
 
-  // Handle PNG cover images for thumbnails
-  if (FsHelpers::isPngFile(coverImageHref)) {
-    Serial.printf("[%lu] [EBP] Generating thumb BMP from PNG cover image\n", millis());
-    const auto coverPngTempPath = getCachePath() + "/.cover.png";
-    const auto thumbTempPath = thumbPath + ".tmp";
+  // Extract cover image to temp file, then convert to thumbnail
+  Serial.printf("[%lu] [EBP] Generating thumb BMP from cover image\n", millis());
+  const std::string ext = FsHelpers::isJpegFile(coverImageHref) ? ".jpg" : ".png";
+  const auto coverTempPath = getCachePath() + "/.cover" + ext;
+  const auto thumbTempPath = thumbPath + ".tmp";
 
-    FsFile coverPng;
-    if (!SdMan.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
-      return false;
-    }
-    if (!readItemContentsToStream(coverImageHref, coverPng, 1024)) {
-      coverPng.close();
-      return false;
-    }
-    coverPng.close();
-
-    if (!SdMan.openFileForRead("EBP", coverPngTempPath, coverPng)) {
-      return false;
-    }
-
-    FsFile thumbBmp;
-    if (!SdMan.openFileForWrite("EBP", thumbTempPath, thumbBmp)) {
-      coverPng.close();
-      return false;
-    }
-
-    // Use thumbnail size for fast home screen rendering
-    const bool success = PngToBmpConverter::pngFileToBmpStreamWithSize(coverPng, thumbBmp, THUMB_WIDTH, THUMB_HEIGHT);
-    coverPng.close();
-    thumbBmp.close();
-    SdMan.remove(coverPngTempPath.c_str());
-
-    if (success) {
-      // Atomic rename: readers see either no file or complete file
-      FsFile tempFile = SdMan.open(thumbTempPath.c_str(), O_RDWR);
-      if (tempFile) {
-        tempFile.rename(thumbPath.c_str());
-        tempFile.close();
-      }
-    } else {
-      Serial.printf("[%lu] [EBP] Failed to generate thumb BMP from PNG cover image\n", millis());
-      SdMan.remove(thumbTempPath.c_str());
-      // Create failure marker so we don't retry
-      FsFile marker;
-      if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-        marker.close();
-      }
-    }
-    Serial.printf("[%lu] [EBP] Generated thumb BMP from PNG cover image, success: %s\n", millis(),
-                  success ? "yes" : "no");
-    return success;
+  FsFile coverFile;
+  if (!SdMan.openFileForWrite("EBP", coverTempPath, coverFile)) {
+    return false;
   }
-
-  Serial.printf("[%lu] [EBP] Unsupported cover image format for thumbnail\n", millis());
-  // Create failure marker so we don't retry
-  FsFile marker;
-  if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-    marker.close();
+  if (!readItemContentsToStream(coverImageHref, coverFile, 1024)) {
+    coverFile.close();
+    return false;
   }
-  return false;
+  coverFile.close();
+
+  // Use 1-bit dithering for JPEG thumbnails (smaller files). PNG thumbnails are
+  // always 2-bit since PngToBmpConverter doesn't support 1-bit output.
+  ImageConvertConfig config;
+  config.maxWidth = THUMB_WIDTH;
+  config.maxHeight = THUMB_HEIGHT;
+  config.oneBit = FsHelpers::isJpegFile(coverImageHref);
+  config.logTag = "EBP";
+
+  const bool success = ImageConverterFactory::convertToBmp(coverTempPath, thumbTempPath, config);
+  SdMan.remove(coverTempPath.c_str());
+
+  if (success) {
+    // Atomic rename: readers see either no file or complete file
+    FsFile tempFile = SdMan.open(thumbTempPath.c_str(), O_RDWR);
+    if (tempFile) {
+      tempFile.rename(thumbPath.c_str());
+      tempFile.close();
+    }
+  } else {
+    Serial.printf("[%lu] [EBP] Failed to generate thumb BMP from cover image\n", millis());
+    SdMan.remove(thumbTempPath.c_str());
+    // Create failure marker so we don't retry
+    FsFile marker;
+    if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
+      marker.close();
+    }
+  }
+  Serial.printf("[%lu] [EBP] Generated thumb BMP from cover image, success: %s\n", millis(), success ? "yes" : "no");
+  return success;
 }
 
 bool Epub::generateCoverBmp(bool use1BitDithering) const {
@@ -645,99 +588,50 @@ bool Epub::generateCoverBmp(bool use1BitDithering) const {
     return false;
   }
 
-  if (FsHelpers::isJpegFile(coverImageHref)) {
-    Serial.printf("[%lu] [EBP] Generating BMP from JPG cover image\n", millis());
-    const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
-
-    FsFile coverJpg;
-    if (!SdMan.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
-      return false;
+  // Check if format is supported
+  if (!ImageConverterFactory::isSupported(coverImageHref)) {
+    Serial.printf("[%lu] [EBP] Unsupported cover image format\n", millis());
+    // Create failure marker
+    FsFile marker;
+    if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
+      marker.close();
     }
-    if (!readItemContentsToStream(coverImageHref, coverJpg, 1024)) {
-      coverJpg.close();
-      return false;
-    }
-    coverJpg.close();
-
-    if (!SdMan.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
-      return false;
-    }
-
-    FsFile coverBmp;
-    if (!SdMan.openFileForWrite("EBP", coverPath, coverBmp)) {
-      coverJpg.close();
-      return false;
-    }
-    const bool success = use1BitDithering ? JpegToBmpConverter::jpegFileTo1BitBmpStream(coverJpg, coverBmp)
-                                          : JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp);
-    coverJpg.close();
-    coverBmp.close();
-    SdMan.remove(coverJpgTempPath.c_str());
-
-    if (!success) {
-      Serial.printf("[%lu] [EBP] Failed to generate BMP from JPG cover image\n", millis());
-      SdMan.remove(coverPath.c_str());
-      // Create failure marker
-      FsFile marker;
-      if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-        marker.close();
-      }
-    }
-    Serial.printf("[%lu] [EBP] Generated BMP from JPG cover image, success: %s\n", millis(), success ? "yes" : "no");
-    return success;
+    return false;
   }
 
-  // Handle PNG cover images
-  if (FsHelpers::isPngFile(coverImageHref)) {
-    Serial.printf("[%lu] [EBP] Generating BMP from PNG cover image\n", millis());
-    const auto coverPngTempPath = getCachePath() + "/.cover.png";
+  // Extract cover image to temp file, then convert
+  Serial.printf("[%lu] [EBP] Generating BMP from cover image\n", millis());
+  const std::string ext = FsHelpers::isJpegFile(coverImageHref) ? ".jpg" : ".png";
+  const auto coverTempPath = getCachePath() + "/.cover" + ext;
 
-    FsFile coverPng;
-    if (!SdMan.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
-      return false;
-    }
-    if (!readItemContentsToStream(coverImageHref, coverPng, 1024)) {
-      coverPng.close();
-      return false;
-    }
-    coverPng.close();
-
-    if (!SdMan.openFileForRead("EBP", coverPngTempPath, coverPng)) {
-      return false;
-    }
-
-    FsFile coverBmp;
-    if (!SdMan.openFileForWrite("EBP", coverPath, coverBmp)) {
-      coverPng.close();
-      return false;
-    }
-
-    // Use screen dimensions as max (480x800 for Xteink X4)
-    const bool success = PngToBmpConverter::pngFileToBmpStreamWithSize(coverPng, coverBmp, 480, 800);
-    coverPng.close();
-    coverBmp.close();
-    SdMan.remove(coverPngTempPath.c_str());
-
-    if (!success) {
-      Serial.printf("[%lu] [EBP] Failed to generate BMP from PNG cover image\n", millis());
-      SdMan.remove(coverPath.c_str());
-      // Create failure marker
-      FsFile marker;
-      if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-        marker.close();
-      }
-    }
-    Serial.printf("[%lu] [EBP] Generated BMP from PNG cover image, success: %s\n", millis(), success ? "yes" : "no");
-    return success;
+  FsFile coverFile;
+  if (!SdMan.openFileForWrite("EBP", coverTempPath, coverFile)) {
+    return false;
   }
-
-  Serial.printf("[%lu] [EBP] Unsupported cover image format\n", millis());
-  // Create failure marker
-  FsFile marker;
-  if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
-    marker.close();
+  if (!readItemContentsToStream(coverImageHref, coverFile, 1024)) {
+    coverFile.close();
+    return false;
   }
-  return false;
+  coverFile.close();
+
+  ImageConvertConfig config;
+  config.oneBit = use1BitDithering;
+  config.logTag = "EBP";
+
+  const bool success = ImageConverterFactory::convertToBmp(coverTempPath, coverPath, config);
+  SdMan.remove(coverTempPath.c_str());
+
+  if (!success) {
+    Serial.printf("[%lu] [EBP] Failed to generate BMP from cover image\n", millis());
+    SdMan.remove(coverPath.c_str());
+    // Create failure marker
+    FsFile marker;
+    if (SdMan.openFileForWrite("EBP", failedMarkerPath, marker)) {
+      marker.close();
+    }
+  }
+  Serial.printf("[%lu] [EBP] Generated BMP from cover image, success: %s\n", millis(), success ? "yes" : "no");
+  return success;
 }
 
 uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size, const bool trailingNullByte) const {

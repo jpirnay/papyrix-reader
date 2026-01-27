@@ -4,8 +4,7 @@
 #include <BitmapHelpers.h>
 #include <GfxRenderer.h>
 #include <HardwareSerial.h>
-#include <JpegToBmpConverter.h>
-#include <PngToBmpConverter.h>
+#include <ImageConverter.h>
 #include <SDCardManager.h>
 
 #include "../../src/config.h"
@@ -97,90 +96,10 @@ std::string findCoverImage(const std::string& dirPath, const std::string& baseNa
 
 bool convertImageToBmp(const std::string& inputPath, const std::string& outputPath, const char* logTag,
                        bool use1BitDithering) {
-  // Check if it's a BMP file (just copy)
-  if (FsHelpers::isBmpFile(inputPath)) {
-    FsFile src, dst;
-    if (!SdMan.openFileForRead(logTag, inputPath, src)) {
-      Serial.printf("[%lu] [%s] Failed to open source BMP\n", millis(), logTag);
-      return false;
-    }
-    if (!SdMan.openFileForWrite(logTag, outputPath, dst)) {
-      src.close();
-      Serial.printf("[%lu] [%s] Failed to create destination BMP\n", millis(), logTag);
-      return false;
-    }
-
-    uint8_t buffer[512];
-    while (src.available()) {
-      size_t bytesRead = src.read(buffer, sizeof(buffer));
-      dst.write(buffer, bytesRead);
-    }
-
-    src.close();
-    dst.close();
-    Serial.printf("[%lu] [%s] Copied cover BMP: %s\n", millis(), logTag, outputPath.c_str());
-    return true;
-  }
-
-  // Check if it's a PNG file
-  if (FsHelpers::isPngFile(inputPath)) {
-    FsFile pngFile;
-    if (!SdMan.openFileForRead(logTag, inputPath, pngFile)) {
-      Serial.printf("[%lu] [%s] Failed to open PNG file\n", millis(), logTag);
-      return false;
-    }
-
-    FsFile bmpFile;
-    if (!SdMan.openFileForWrite(logTag, outputPath, bmpFile)) {
-      pngFile.close();
-      Serial.printf("[%lu] [%s] Failed to create BMP file\n", millis(), logTag);
-      return false;
-    }
-
-    // Use screen dimensions as max (480x800 for Xteink X4)
-    const bool success = PngToBmpConverter::pngFileToBmpStreamWithSize(pngFile, bmpFile, 480, 800);
-
-    pngFile.close();
-    bmpFile.close();
-
-    if (success) {
-      Serial.printf("[%lu] [%s] Generated cover BMP from PNG: %s\n", millis(), logTag, outputPath.c_str());
-    } else {
-      Serial.printf("[%lu] [%s] Failed to convert PNG to BMP\n", millis(), logTag);
-      SdMan.remove(outputPath.c_str());
-    }
-
-    return success;
-  }
-
-  // Assume JPG/JPEG for any other extension
-  FsFile jpegFile;
-  if (!SdMan.openFileForRead(logTag, inputPath, jpegFile)) {
-    Serial.printf("[%lu] [%s] Failed to open JPEG file\n", millis(), logTag);
-    return false;
-  }
-
-  FsFile bmpFile;
-  if (!SdMan.openFileForWrite(logTag, outputPath, bmpFile)) {
-    jpegFile.close();
-    Serial.printf("[%lu] [%s] Failed to create BMP file\n", millis(), logTag);
-    return false;
-  }
-
-  const bool success = use1BitDithering ? JpegToBmpConverter::jpegFileTo1BitBmpStream(jpegFile, bmpFile)
-                                        : JpegToBmpConverter::jpegFileToBmpStream(jpegFile, bmpFile);
-
-  jpegFile.close();
-  bmpFile.close();
-
-  if (success) {
-    Serial.printf("[%lu] [%s] Generated cover BMP from JPEG: %s\n", millis(), logTag, outputPath.c_str());
-  } else {
-    Serial.printf("[%lu] [%s] Failed to convert JPEG to BMP\n", millis(), logTag);
-    SdMan.remove(outputPath.c_str());
-  }
-
-  return success;
+  ImageConvertConfig config;
+  config.oneBit = use1BitDithering;
+  config.logTag = logTag;
+  return ImageConverterFactory::convertToBmp(inputPath, outputPath, config);
 }
 
 bool generateThumbFromCover(const std::string& coverBmpPath, const std::string& thumbBmpPath, const char* logTag) {

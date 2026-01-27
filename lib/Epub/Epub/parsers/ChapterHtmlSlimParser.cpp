@@ -4,8 +4,7 @@
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HardwareSerial.h>
-#include <JpegToBmpConverter.h>
-#include <PngToBmpConverter.h>
+#include <ImageConverter.h>
 #include <SDCardManager.h>
 #include <expat.h>
 
@@ -529,11 +528,8 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
     return "";
   }
 
-  // Determine format from extension
-  const bool isJpeg = FsHelpers::isJpegFile(src);
-  const bool isPng = FsHelpers::isPngFile(src);
-
-  if (!isJpeg && !isPng) {
+  // Check if format is supported
+  if (!ImageConverterFactory::isSupported(src)) {
     Serial.printf("[%lu] [EHP] Unsupported image format: %s\n", millis(), src.c_str());
     FsFile marker;
     if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
@@ -543,7 +539,7 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
   }
 
   // Extract image to temp file (include hash in name for uniqueness)
-  const std::string tempExt = isPng ? ".png" : ".jpg";
+  const std::string tempExt = FsHelpers::isPngFile(src) ? ".png" : ".jpg";
   std::string tempPath = imageCachePath + "/.tmp_" + std::to_string(srcHash) + tempExt;
   FsFile tempFile;
   if (!SdMan.openFileForWrite("EHP", tempPath, tempFile)) {
@@ -563,39 +559,18 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
   }
   tempFile.close();
 
-  // Open temp file for reading
-  FsFile imageFile;
-  if (!SdMan.openFileForRead("EHP", tempPath, imageFile)) {
-    Serial.printf("[%lu] [EHP] Failed to open temp image for reading\n", millis());
-    SdMan.remove(tempPath.c_str());
-    return "";
-  }
-
-  // Convert to BMP
-  FsFile bmpFile;
-  if (!SdMan.openFileForWrite("EHP", cachedBmpPath, bmpFile)) {
-    Serial.printf("[%lu] [EHP] Failed to create cached BMP file\n", millis());
-    imageFile.close();
-    SdMan.remove(tempPath.c_str());
-    return "";
-  }
-
   // Max width is viewport, max height is half of viewport to avoid images taking too much vertical space
   const int maxImageHeight = config.viewportHeight / 2;
-  bool success;
-  if (isPng) {
-    success = PngToBmpConverter::pngFileToBmpStreamWithSize(imageFile, bmpFile, config.viewportWidth, maxImageHeight);
-  } else {
-    success = JpegToBmpConverter::jpegFileToBmpStreamWithSize(imageFile, bmpFile, config.viewportWidth, maxImageHeight);
-  }
+  ImageConvertConfig convertConfig;
+  convertConfig.maxWidth = static_cast<int>(config.viewportWidth);
+  convertConfig.maxHeight = maxImageHeight;
+  convertConfig.logTag = "EHP";
 
-  bmpFile.close();
-  imageFile.close();
+  const bool success = ImageConverterFactory::convertToBmp(tempPath, cachedBmpPath, convertConfig);
   SdMan.remove(tempPath.c_str());
 
   if (!success) {
-    Serial.printf("[%lu] [EHP] Failed to convert %s to BMP: %s\n", millis(), isPng ? "PNG" : "JPEG",
-                  resolvedPath.c_str());
+    Serial.printf("[%lu] [EHP] Failed to convert image to BMP: %s\n", millis(), resolvedPath.c_str());
     SdMan.remove(cachedBmpPath.c_str());
     FsFile marker;
     if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {

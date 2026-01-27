@@ -45,6 +45,14 @@ void render(const GfxRenderer& r, const Theme& t, const HomeView& v) {
       r.drawImage(v.coverData, coverX, coverY, v.coverWidth, v.coverHeight);
     }
 
+    // Draw book placeholder when no cover available (same area as real covers)
+    if (!hasCover) {
+      constexpr int padding = 10;
+      constexpr int continueAreaHeight = 60;  // Reserve space for "Continue Reading" at bottom
+      bookPlaceholder(r, t, cardX + padding, cardY + padding, cardWidth - 2 * padding,
+                      cardHeight - 2 * padding - continueAreaHeight);
+    }
+
     const int titleLineHeight = r.getLineHeight(t.uiFontId);
 
     // "Continue Reading" at bottom of card

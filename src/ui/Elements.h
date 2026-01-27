@@ -95,6 +95,9 @@ void centeredText(const GfxRenderer& r, const Theme& t, int y, const char* str);
 // Centered message - Bold centered message (for loading/error screens)
 void centeredMessage(const GfxRenderer& r, const Theme& t, int fontId, const char* message);
 
+// Book placeholder - Stylized book icon with "No Cover" label for missing covers
+void bookPlaceholder(const GfxRenderer& r, const Theme& t, int x, int y, int width, int height);
+
 // Overlay box - Centered notification box with text (for Indexing/Loading messages)
 void overlayBox(const GfxRenderer& r, const Theme& t, int fontId, int y, const char* message);
 

@@ -531,6 +531,55 @@ void centeredMessage(const GfxRenderer& r, const Theme& t, int fontId, const cha
   r.displayBuffer();
 }
 
+void bookPlaceholder(const GfxRenderer& r, const Theme& t, int x, int y, int width, int height) {
+  // Minimum size check - need enough space for the icon to be visible
+  constexpr int minSize = 50;
+  if (width < minSize || height < minSize) {
+    r.drawRect(x, y, width, height, t.primaryTextBlack);
+    return;
+  }
+
+  // Book icon dimensions (scaled to fit within bounds)
+  constexpr int baseWidth = 200;
+  constexpr int baseHeight = 280;
+  const float scale = std::min(static_cast<float>(width) / baseWidth, static_cast<float>(height) / baseHeight);
+  const int iconWidth = static_cast<int>(baseWidth * scale);
+  const int iconHeight = static_cast<int>(baseHeight * scale);
+  const int iconX = x + (width - iconWidth) / 2;
+  const int iconY = y + (height - iconHeight) / 2;
+
+  // Book outline
+  r.drawRect(iconX, iconY, iconWidth, iconHeight, t.primaryTextBlack);
+
+  // Spine (filled rectangle on left)
+  const int spineWidth = static_cast<int>(16 * scale);
+  r.fillRect(iconX, iconY, spineWidth, iconHeight, !t.primaryTextBlack);
+  r.drawRect(iconX, iconY, spineWidth, iconHeight, t.primaryTextBlack);
+
+  // "No Cover" text box
+  const char* noCoverText = "No Cover";
+  const int textWidth = r.getTextWidth(t.smallFontId, noCoverText);
+  const int boxPadding = static_cast<int>(8 * scale);
+  const int availableWidth = iconWidth - spineWidth;
+  const int boxWidth = std::min(textWidth + boxPadding * 2, availableWidth - 4);
+  const int boxHeight = r.getLineHeight(t.smallFontId) + boxPadding;
+  const int boxX = iconX + spineWidth + (availableWidth - boxWidth) / 2;
+  const int boxY = iconY + static_cast<int>(30 * scale);
+  r.drawRect(boxX, boxY, boxWidth, boxHeight, t.primaryTextBlack);
+  r.drawText(t.smallFontId, boxX + boxPadding, boxY + boxPadding / 2, noCoverText, t.primaryTextBlack);
+
+  // Horizontal lines (text placeholder)
+  const int lineStartX = iconX + spineWidth + static_cast<int>(20 * scale);
+  const int lineStartY = boxY + boxHeight + static_cast<int>(40 * scale);
+  const int lineSpacing = static_cast<int>(22 * scale);
+  const int lineLengths[] = {static_cast<int>(120 * scale), static_cast<int>(120 * scale),
+                             static_cast<int>(100 * scale), static_cast<int>(70 * scale)};
+  for (int i = 0; i < 4; i++) {
+    r.drawLine(lineStartX, lineStartY + i * lineSpacing, lineStartX + lineLengths[i], lineStartY + i * lineSpacing,
+               t.primaryTextBlack);
+  }
+}
+
 void overlayBox(const GfxRenderer& r, const Theme& t, int fontId, int y, const char* message) {
   constexpr int boxMargin = 20;
   const int textWidth = r.getTextWidth(fontId, message);

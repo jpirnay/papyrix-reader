@@ -37,6 +37,13 @@ inline std::string contentCachePath(const char* cacheDir, int fontId) {
 }
 }  // namespace
 
+int ReaderState::calcFirstContentSpine(bool hasCover, int textStartIndex, size_t spineCount) {
+  if (hasCover && textStartIndex == 0 && spineCount > 1) {
+    return 1;
+  }
+  return textStartIndex;
+}
+
 // Template implementation for cache creation/extension
 template <typename ParserT>
 void ReaderState::createOrExtendCacheImpl(ParserT& parser, const std::string& cachePath, const RenderConfig& config) {
@@ -181,11 +188,17 @@ void ReaderState::enter(Core& core) {
   core.settings.save(core.storage);
 
   // Setup cache directories for all content types
+  // Reset state for new book
+  textStartIndex_ = 0;
+  hasCover_ = false;
   switch (core.content.metadata().type) {
     case ContentType::Epub: {
       auto* provider = core.content.asEpub();
       if (provider && provider->getEpub()) {
         provider->getEpub()->setupCacheDir();
+        // Get the spine index for the first text content (from <guide> element)
+        textStartIndex_ = provider->getEpub()->getSpineIndexForTextReference();
+        Serial.printf("[READER] Text starts at spine index %d\n", textStartIndex_);
       }
       break;
     }
@@ -325,8 +338,20 @@ void ReaderState::render(Core& core) {
 }
 
 void ReaderState::navigateNext(Core& core) {
-  // From cover (-1) -> first content page (0)
+  // From cover (-1) -> first text content page
   if (currentSpineIndex_ == 0 && currentSectionPage_ == -1) {
+    auto* provider = core.content.asEpub();
+    size_t spineCount = (provider && provider->getEpub()) ? provider->getEpub()->getSpineItemsCount() : 1;
+    int firstContentSpine = calcFirstContentSpine(hasCover_, textStartIndex_, spineCount);
+
+    if (firstContentSpine != currentSpineIndex_) {
+      currentSpineIndex_ = firstContentSpine;
+      stopBackgroundCaching();
+      xSemaphoreTake(cacheMutex_, portMAX_DELAY);
+      pageCache_.reset();
+      xSemaphoreGive(cacheMutex_);
+      cacheTaskComplete_ = false;
+    }
     currentSectionPage_ = 0;
     needsRender_ = true;
     return;
@@ -344,14 +369,21 @@ void ReaderState::navigateNext(Core& core) {
 }
 
 void ReaderState::navigatePrev(Core& core) {
-  // At first page of first chapter
-  if (currentSpineIndex_ == 0 && currentSectionPage_ == 0) {
+  auto* provider = core.content.asEpub();
+  size_t spineCount = (provider && provider->getEpub()) ? provider->getEpub()->getSpineItemsCount() : 1;
+  int firstContentSpine = calcFirstContentSpine(hasCover_, textStartIndex_, spineCount);
+
+  // At first page of text content
+  if (currentSpineIndex_ == firstContentSpine && currentSectionPage_ == 0) {
     // Only go to cover if it exists and images enabled
     if (hasCover_ && core.settings.showImages) {
+      currentSpineIndex_ = 0;
       currentSectionPage_ = -1;
+      stopBackgroundCaching();
       xSemaphoreTake(cacheMutex_, portMAX_DELAY);
       pageCache_.reset();  // Don't need cache for cover
       xSemaphoreGive(cacheMutex_);
+      cacheTaskComplete_ = false;
       needsRender_ = true;
     }
     return;  // At start of book either way
@@ -399,15 +431,21 @@ void ReaderState::renderCurrentPage(Core& core) {
     if (core.settings.showImages) {
       if (renderCoverPage(core)) {
         hasCover_ = true;
-        // Start background caching while user views cover
         startBackgroundCaching(core);
         core.display.markDirty();
         return;
       }
-      // No cover - skip to page 0
+      // No cover - skip spine 0 if textStartIndex is 0 (likely empty cover document)
       hasCover_ = false;
       currentSectionPage_ = 0;
-      // Fall through to render page 0
+      if (textStartIndex_ == 0) {
+        // Only skip to spine 1 if it exists
+        auto* provider = core.content.asEpub();
+        if (provider && provider->getEpub() && provider->getEpub()->getSpineItemsCount() > 1) {
+          currentSpineIndex_ = 1;
+        }
+      }
+      // Fall through to render content
     } else {
       currentSectionPage_ = 0;
     }
@@ -794,6 +832,10 @@ void ReaderState::cacheTaskLoop() {
   xSemaphoreTake(cacheMutex_, portMAX_DELAY);
   bool cacheExists = (pageCache_ != nullptr);
   Core* corePtr = coreForCacheTask_;
+  int sectionPage = currentSectionPage_;
+  int spineIndex = currentSpineIndex_;
+  bool coverExists = hasCover_;
+  int textStart = textStartIndex_;
   xSemaphoreGive(cacheMutex_);
 
   if (!cacheExists && !cacheTaskStopRequested_ && corePtr) {
@@ -807,8 +849,13 @@ void ReaderState::cacheTaskLoop() {
         const auto config = coreRef.settings.getRenderConfig(theme, vp.width, vp.height);
         std::string imageCachePath =
             coreRef.settings.showImages ? (provider->getEpub()->getCachePath() + "/images") : "";
-        std::string cachePath = epubSectionCachePath(provider->getEpub()->getCachePath(), currentSpineIndex_);
-        EpubChapterParser parser(provider->getEpubShared(), currentSpineIndex_, renderer_, config, imageCachePath);
+        // When on cover page (sectionPage=-1), cache the first content spine
+        int spineToCache = spineIndex;
+        if (sectionPage == -1) {
+          spineToCache = calcFirstContentSpine(coverExists, textStart, provider->getEpub()->getSpineItemsCount());
+        }
+        std::string cachePath = epubSectionCachePath(provider->getEpub()->getCachePath(), spineToCache);
+        EpubChapterParser parser(provider->getEpubShared(), spineToCache, renderer_, config, imageCachePath);
         backgroundCacheImpl(parser, cachePath, config);
       }
     } else if (type == ContentType::Markdown && !cacheTaskStopRequested_) {

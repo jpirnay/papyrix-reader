@@ -67,6 +67,9 @@ class ReaderState : public State {
   // Whether book has a valid cover image
   bool hasCover_ = false;
 
+  // First text content spine index (from EPUB guide, 0 if not specified)
+  int textStartIndex_ = 0;
+
   // Unified page cache for all content types (protected by cacheMutex_)
   std::unique_ptr<PageCache> pageCache_;
   SemaphoreHandle_t cacheMutex_ = nullptr;  // Protects pageCache_ access
@@ -123,6 +126,9 @@ class ReaderState : public State {
     int height;
   };
   Viewport getReaderViewport() const;
+
+  // Get first content spine index (skips cover document when appropriate)
+  static int calcFirstContentSpine(bool hasCover, int textStartIndex, size_t spineCount);
 
   // Source state (where reader was opened from)
   StateId sourceState_ = StateId::Home;

@@ -1,0 +1,11 @@
+{
+  "name": "Calibre",
+  "version": "1.0.0",
+  "build": {
+    "srcFilter": [
+      "+<calibre_wireless.c>",
+      "+<calibre_network.c>",
+      "+<calibre_protocol.c>"
+    ]
+  }
+}

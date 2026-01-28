@@ -24,7 +24,8 @@ NetworkState::NetworkState(GfxRenderer& renderer)
       needsRender_(true),
       goBack_(false),
       server_(nullptr),
-      passwordJustEntered_(false) {
+      passwordJustEntered_(false),
+      goCalibreSync_(false) {
   selectedSSID_[0] = '\0';
 }
 
@@ -42,6 +43,7 @@ void NetworkState::enter(Core& core) {
   needsRender_ = true;
   goBack_ = false;
   passwordJustEntered_ = false;
+  goCalibreSync_ = false;
   selectedSSID_[0] = '\0';
 
   // Load saved credentials
@@ -54,8 +56,10 @@ void NetworkState::exit(Core& core) {
   // Stop web server if running
   stopWebServer(core);
 
-  // Shut down WiFi
-  core.network.shutdown();
+  // Don't shutdown WiFi if transitioning to CalibreSync - it needs the connection
+  if (!goCalibreSync_) {
+    core.network.shutdown();
+  }
 }
 
 StateTransition NetworkState::update(Core& core) {
@@ -111,6 +115,11 @@ StateTransition NetworkState::update(Core& core) {
   if (goBack_) {
     goBack_ = false;
     return StateTransition::to(StateId::Settings);
+  }
+
+  if (goCalibreSync_) {
+    // goCalibreSync_ stays true so exit() knows not to shutdown WiFi
+    return StateTransition::to(StateId::CalibreSync);
   }
 
   return StateTransition::stay(StateId::Network);
@@ -312,13 +321,25 @@ void NetworkState::handlePasswordEntry(Core& core, Button button) {
 void NetworkState::handleConnecting(Core& core, Button button) {
   if (button == Button::Left || button == Button::Back) {
     if (connectingView_.status == ui::WifiConnectingView::Status::Failed) {
-      // Go back to network list
       currentScreen_ = NetworkScreen::WifiList;
       wifiListView_.needsRender = true;
       needsRender_ = true;
     }
   } else if (button == Button::Center) {
     if (connectingView_.status == ui::WifiConnectingView::Status::Connected) {
+      // Check if we're connecting for Calibre sync
+      if (core.pendingSync == SyncMode::CalibreWireless) {
+        // Save credentials if needed before transitioning
+        if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
+          WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
+        }
+        // Clear password from memory
+        memset(keyboardView_.input, 0, sizeof(keyboardView_.input));
+        keyboardView_.inputLen = 0;
+        goCalibreSync_ = true;
+        return;
+      }
+
       // Ask to save credentials if this was a new password
       if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
         confirmView_.setTitle("Save Password?");
@@ -357,12 +378,10 @@ void NetworkState::handleSavePrompt(Core& core, Button button) {
       if (confirmView_.isYesSelected()) {
         WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
       }
-      // Start web server
       startWebServer(core);
       break;
 
     case Button::Back:
-      // Skip saving, start web server anyway
       startWebServer(core);
       break;
 

@@ -123,36 +123,6 @@ void render(const GfxRenderer& r, const Theme& t, const WifiConnectingView& v) {
   r.displayBuffer();
 }
 
-void render(const GfxRenderer& r, const Theme& t, const CalibreView& v) {
-  r.clearScreen(t.backgroundColor);
-
-  title(r, t, t.screenMarginTop, "Calibre");
-
-  const int centerY = r.getScreenHeight() / 2 - 60;
-
-  // Status message
-  centeredText(r, t, centerY, v.statusMsg);
-
-  // Progress bar if receiving
-  if (v.status == CalibreView::Status::Receiving && v.total > 0) {
-    progress(r, t, centerY + 50, v.received, v.total);
-
-    // Size info
-    char sizeStr[32];
-    snprintf(sizeStr, sizeof(sizeStr), "%d / %d KB", v.received / 1024, v.total / 1024);
-    centeredText(r, t, centerY + 100, sizeStr);
-  }
-
-  // Button hints based on status
-  if (v.status == CalibreView::Status::Complete || v.status == CalibreView::Status::Error) {
-    buttonBar(r, t, "Back", "", "", "");
-  } else {
-    buttonBar(r, t, "Cancel", "", "", "");
-  }
-
-  r.displayBuffer();
-}
-
 void render(const GfxRenderer& r, const Theme& t, const WebServerView& v) {
   r.clearScreen(t.backgroundColor);
 

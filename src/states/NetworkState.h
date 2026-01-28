@@ -52,6 +52,7 @@ class NetworkState : public State {
   // State tracking
   char selectedSSID_[33];
   bool passwordJustEntered_;
+  bool goCalibreSync_;
 
   // Screen handlers
   void handleModeSelect(Core& core, Button button);

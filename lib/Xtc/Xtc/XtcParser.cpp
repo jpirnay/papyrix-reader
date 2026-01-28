@@ -47,8 +47,9 @@ XtcError XtcParser::open(const char* filepath) {
     return m_lastError;
   }
 
-  // Read title if available
+  // Read title and author if available
   readTitle();
+  readAuthor();
 
   // Read page table
   m_lastError = readPageTable();
@@ -80,6 +81,7 @@ void XtcParser::close() {
   m_pageTable.clear();
   m_chapters.clear();
   m_title.clear();
+  m_author.clear();
   m_hasChapters = false;
   memset(&m_header, 0, sizeof(m_header));
 }
@@ -142,6 +144,34 @@ XtcError XtcParser::readTitle() {
   m_title = titleBuf;
 
   Serial.printf("[%lu] [XTC] Title: %s\n", millis(), m_title.c_str());
+  return XtcError::OK;
+}
+
+XtcError XtcParser::readAuthor() {
+  // Author is at offset 0xB8, directly following title (which ends at 0x38 + 128 = 0xB8)
+  constexpr uint32_t authorOffset = 0xB8;
+  if (!m_file.seek(authorOffset)) {
+    return XtcError::OK;  // Author is optional
+  }
+
+  char authorBuf[64] = {0};
+  const int bytesRead = m_file.read(reinterpret_cast<uint8_t*>(authorBuf), sizeof(authorBuf) - 1);
+  if (bytesRead <= 0) {
+    return XtcError::OK;  // Author is optional
+  }
+
+  // Validate that the string looks like text (not garbage data)
+  // Check first few bytes for printable ASCII or valid UTF-8 lead bytes
+  const auto* p = reinterpret_cast<const uint8_t*>(authorBuf);
+  if (p[0] == 0 || (p[0] < 0x20 && p[0] != '\t') || p[0] == 0x7F) {
+    return XtcError::OK;  // Starts with control char or null - likely not valid author data
+  }
+
+  m_author = authorBuf;
+
+  if (!m_author.empty()) {
+    Serial.printf("[%lu] [XTC] Author: %s\n", millis(), m_author.c_str());
+  }
   return XtcError::OK;
 }
 

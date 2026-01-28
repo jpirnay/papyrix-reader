@@ -31,7 +31,13 @@ Result<void> XtcProvider::open(const char* path, const char* cacheDir) {
   }
   meta.title[sizeof(meta.title) - 1] = '\0';
 
-  meta.author[0] = '\0';  // XTC doesn't have author metadata
+  std::string author = parser.getAuthor();
+  if (!author.empty()) {
+    strncpy(meta.author, author.c_str(), sizeof(meta.author) - 1);
+    meta.author[sizeof(meta.author) - 1] = '\0';
+  } else {
+    meta.author[0] = '\0';
+  }
 
   // Create cache path for progress saving
   if (cacheDir && cacheDir[0] != '\0') {

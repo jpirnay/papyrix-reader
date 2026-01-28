@@ -114,7 +114,7 @@ StateTransition NetworkState::update(Core& core) {
 
   if (goBack_) {
     goBack_ = false;
-    return StateTransition::to(StateId::Settings);
+    return StateTransition::to(StateId::Sync);
   }
 
   if (goCalibreSync_) {

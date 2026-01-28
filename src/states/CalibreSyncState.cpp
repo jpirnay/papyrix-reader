@@ -159,7 +159,7 @@ StateTransition CalibreSyncState::update(Core& core) {
   if (goBack_) {
     goBack_ = false;
     // exit() will handle restart
-    return StateTransition::to(StateId::Settings);
+    return StateTransition::to(StateId::Sync);
   }
 
   return StateTransition::stay(StateId::CalibreSync);

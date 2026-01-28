@@ -14,18 +14,18 @@ namespace papyrix {
 ContentMetadata ContentHandle::emptyMetadata_ = {};
 
 // Helper to compute max of variadic sizeof
-template <typename T, typename... Ts>
-struct MaxSize {
-  static constexpr size_t value = sizeof(T) > MaxSize<Ts...>::value ? sizeof(T) : MaxSize<Ts...>::value;
-};
 template <typename T>
-struct MaxSize<T> {
-  static constexpr size_t value = sizeof(T);
-};
+constexpr size_t maxSize() {
+  return sizeof(T);
+}
+template <typename T, typename U, typename... Rest>
+constexpr size_t maxSize() {
+  return sizeof(T) > maxSize<U, Rest...>() ? sizeof(T) : maxSize<U, Rest...>();
+}
 
 ContentHandle::ContentHandle() : type(ContentType::None) {
   // Zero-initialize entire union for safety
-  constexpr size_t unionSize = MaxSize<EpubProvider, XtcProvider, TxtProvider, MarkdownProvider>::value;
+  constexpr size_t unionSize = maxSize<EpubProvider, XtcProvider, TxtProvider, MarkdownProvider>();
   memset(&epub, 0, unionSize);
 }
 

@@ -4,6 +4,8 @@
 #include <SDCardManager.h>
 #include <miniz.h>
 
+#include <algorithm>
+
 bool inflateOneShot(const uint8_t* inputBuf, const size_t deflatedSize, uint8_t* outputBuf, const size_t inflatedSize) {
   // Setup inflator
   const auto inflator = static_cast<tinfl_decompressor*>(malloc(sizeof(tinfl_decompressor)));
@@ -285,6 +287,81 @@ bool ZipFile::getInflatedFileSize(const char* filename, size_t* size) {
 
   *size = static_cast<size_t>(fileStat.uncompressedSize);
   return true;
+}
+
+int ZipFile::fillUncompressedSizes(std::vector<SizeTarget>& targets, std::vector<uint32_t>& sizes) {
+  if (targets.empty()) {
+    return 0;
+  }
+
+  const bool wasOpen = isOpen();
+  if (!wasOpen && !open()) {
+    return 0;
+  }
+
+  if (!loadZipDetails()) {
+    if (!wasOpen) {
+      close();
+    }
+    return 0;
+  }
+
+  file.seek(zipDetails.centralDirOffset);
+
+  uint32_t sig;
+  char itemName[256];
+  int matched = 0;
+
+  while (file.available()) {
+    if (file.read(&sig, 4) != 4) break;
+    if (sig != 0x02014b50) break;  // End of central directory
+
+    // Skip: version made by (2), version needed (2), flags (2), method (2), time (2), date (2), crc32 (4)
+    file.seekCur(16);
+    // Skip compressedSize (4), read uncompressedSize (4)
+    file.seekCur(4);
+    uint32_t uncompressedSize;
+    if (file.read(&uncompressedSize, 4) != 4) break;
+    uint16_t nameLen, m, k;
+    if (file.read(&nameLen, 2) != 2) break;
+    if (file.read(&m, 2) != 2) break;
+    if (file.read(&k, 2) != 2) break;
+    // Skip: comment len already read in k, disk# (2), internal attr (2), external attr (4), local header offset (4)
+    file.seekCur(12);
+
+    // Bounds check to prevent buffer overflow
+    if (nameLen > 255) {
+      file.seekCur(nameLen + m + k);  // Skip this entry entirely
+      continue;
+    }
+
+    if (file.read(itemName, nameLen) != nameLen) break;
+    itemName[nameLen] = '\0';
+
+    // Compute hash on-the-fly from filename
+    const uint64_t entryHash = fnvHash64(itemName, nameLen);
+
+    // Binary search for matching target
+    SizeTarget key = {entryHash, nameLen, 0};
+    auto it = std::lower_bound(targets.begin(), targets.end(), key);
+
+    // Check for match (hash and len must match)
+    if (it != targets.end() && it->hash == entryHash && it->len == nameLen) {
+      // Bounds check before write
+      if (it->index < sizes.size()) {
+        sizes[it->index] = uncompressedSize;
+        matched++;
+      }
+    }
+
+    // Skip the rest of this entry (extra field + comment)
+    file.seekCur(m + k);
+  }
+
+  if (!wasOpen) {
+    close();
+  }
+  return matched;
 }
 
 uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const bool trailingNullByte) {

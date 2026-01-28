@@ -203,6 +203,7 @@ typedef struct {
 //
 class G5ENCODER {
  public:
+  G5ENCODER() : _g5enc{} {}
   int init(int iWidth, int iHeight, uint8_t* pOut, int iOutSize);
   int encodeLine(uint8_t* pPixels);
   int size();
@@ -212,6 +213,7 @@ class G5ENCODER {
 };
 class G5DECODER {
  public:
+  G5DECODER() : _g5dec{} {}
   int init(int iWidth, int iHeight, uint8_t* pData, int iDataSize);
   int decodeLine(uint8_t* pOut);
 

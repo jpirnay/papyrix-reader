@@ -3,7 +3,9 @@
 #include <HardwareSerial.h>
 #include <Serialization.h>
 #include <ZipFile.h>
+#include <esp_heap_caps.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "FsHelpers.h"
@@ -13,6 +15,7 @@ constexpr uint8_t BOOK_CACHE_VERSION = 4;
 constexpr char bookBinFile[] = "/book.bin";
 constexpr char tmpSpineBinFile[] = "/spine.bin.tmp";
 constexpr char tmpTocBinFile[] = "/toc.bin.tmp";
+constexpr uint16_t LARGE_SPINE_THRESHOLD = 400;
 }  // namespace
 
 /* ============= WRITING / BUILDING FUNCTIONS ================ */
@@ -159,30 +162,85 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
     return false;
   }
 
-  // Check if ZIP has too many entries (would exhaust RAM)
-  constexpr uint16_t MAX_ZIP_ENTRIES = 500;
-  if (zip.getTotalEntries() > MAX_ZIP_ENTRIES) {
-    Serial.printf("[%lu] [BMC] EPUB too complex (%d files, max %d)\n", millis(), zip.getTotalEntries(),
-                  MAX_ZIP_ENTRIES);
-    bookFile.close();
-    spineFile.close();
-    tocFile.close();
-    zip.close();
-    return false;
+  // Determine approach based on spine count
+  std::vector<uint32_t> spineSizes;
+  bool useBatchSizes = false;
+
+  if (spineCount >= LARGE_SPINE_THRESHOLD) {
+    // Batch path for large EPUBs - single pass through ZIP central directory
+    Serial.printf("[%lu] [BMC] Using batch size lookup for %d spine items\n", millis(), spineCount);
+
+    // Check heap before large allocation
+    const size_t needed = spineCount * (sizeof(ZipFile::SizeTarget) + sizeof(uint32_t));
+    if (heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) < needed + 10000) {
+      Serial.printf("[%lu] [BMC] Not enough memory for batch lookup (%zu bytes needed), falling back\n", millis(),
+                    needed);
+      // Fall through to original path
+    } else {
+      std::vector<ZipFile::SizeTarget> targets;
+      targets.reserve(spineCount);
+
+      spineFile.seek(0);
+      for (uint16_t i = 0; i < spineCount; i++) {
+        auto entry = readSpineEntry(spineFile);
+        const std::string path = FsHelpers::normalisePath(entry.href);
+
+        // Skip oversized paths (will use fallback)
+        if (path.size() > 255) {
+          Serial.printf("[%lu] [BMC] Warning: Skipping oversized path: %s\n", millis(), path.c_str());
+          continue;
+        }
+
+        ZipFile::SizeTarget t;
+        t.hash = ZipFile::fnvHash64(path.c_str(), path.size());
+        t.len = static_cast<uint16_t>(path.size());
+        t.index = i;
+        targets.push_back(t);
+      }
+
+      // Sort by (hash, len) for binary search
+      std::sort(targets.begin(), targets.end());
+
+      spineSizes.resize(spineCount, 0);
+      int matched = zip.fillUncompressedSizes(targets, spineSizes);
+      Serial.printf("[%lu] [BMC] Batch lookup matched %d/%zu targets\n", millis(), matched, targets.size());
+
+      // Free targets memory immediately
+      targets.clear();
+      targets.shrink_to_fit();
+
+      useBatchSizes = true;
+    }
   }
 
-  if (!zip.loadAllFileStatSlims()) {
-    Serial.printf("[%lu] [BMC] Could not load zip local header offsets for size calculations\n", millis());
-    bookFile.close();
-    spineFile.close();
-    tocFile.close();
-    zip.close();
-    return false;
+  // Original path for small EPUBs or fallback
+  if (!useBatchSizes) {
+    // Check if ZIP has too many entries (would exhaust RAM with hashmap approach)
+    constexpr uint16_t MAX_ZIP_ENTRIES = 500;
+    const uint16_t totalEntries = zip.getTotalEntries();
+    if (totalEntries > MAX_ZIP_ENTRIES) {
+      Serial.printf("[%lu] [BMC] EPUB too complex (%d files, max %d)\n", millis(), totalEntries, MAX_ZIP_ENTRIES);
+      bookFile.close();
+      spineFile.close();
+      tocFile.close();
+      zip.close();
+      return false;
+    }
+
+    if (!zip.loadAllFileStatSlims()) {
+      Serial.printf("[%lu] [BMC] Could not load zip local header offsets for size calculations\n", millis());
+      bookFile.close();
+      spineFile.close();
+      tocFile.close();
+      zip.close();
+      return false;
+    }
   }
+
   uint32_t cumSize = 0;
   spineFile.seek(0);
   int lastSpineTocIndex = -1;
-  for (int i = 0; i < spineCount; i++) {
+  for (uint16_t i = 0; i < spineCount; i++) {
     auto spineEntry = readSpineEntry(spineFile);
 
     // O(1) lookup using prebuilt mapping
@@ -200,13 +258,27 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
 
     // Calculate size for cumulative size
     size_t itemSize = 0;
-    const std::string path = FsHelpers::normalisePath(spineEntry.href);
-    if (zip.getInflatedFileSize(path.c_str(), &itemSize)) {
-      cumSize += itemSize;
-      spineEntry.cumulativeSize = cumSize;
+    if (useBatchSizes) {
+      itemSize = spineSizes[i];
+      // Fallback if batch missed this entry (size == 0)
+      if (itemSize == 0) {
+        const std::string path = FsHelpers::normalisePath(spineEntry.href);
+        if (!zip.getInflatedFileSize(path.c_str(), &itemSize)) {
+          Serial.printf("[%lu] [BMC] Warning: Could not get size for spine item: %s\n", millis(), path.c_str());
+        }
+      }
     } else {
-      Serial.printf("[%lu] [BMC] Warning: Could not get size for spine item: %s\n", millis(), path.c_str());
+      const std::string path = FsHelpers::normalisePath(spineEntry.href);
+      if (!zip.getInflatedFileSize(path.c_str(), &itemSize)) {
+        Serial.printf("[%lu] [BMC] Warning: Could not get size for spine item: %s\n", millis(), path.c_str());
+      }
     }
+
+    // Overflow check before accumulating
+    if (itemSize <= UINT32_MAX - cumSize) {
+      cumSize += itemSize;
+    }
+    spineEntry.cumulativeSize = cumSize;
 
     // Write out spine data to book.bin
     writeSpineEntry(bookFile, spineEntry);

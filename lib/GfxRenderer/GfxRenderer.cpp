@@ -541,12 +541,14 @@ int GfxRenderer::getScreenHeight() const {
 }
 
 int GfxRenderer::getSpaceWidth(const int fontId) const {
-  if (fontMap.count(fontId) == 0) {
+  auto it = fontMap.find(fontId);
+  if (it == fontMap.end()) {
     Serial.printf("[%lu] [GFX] Font %d not found\n", millis(), fontId);
     return 0;
   }
 
-  return fontMap.at(fontId).getGlyph(' ', EpdFontFamily::REGULAR)->advanceX;
+  const EpdGlyph* glyph = it->second.getGlyph(' ', EpdFontFamily::REGULAR);
+  return glyph ? glyph->advanceX : 0;
 }
 
 int GfxRenderer::getFontAscenderSize(const int fontId) const {

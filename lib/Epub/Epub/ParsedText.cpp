@@ -82,6 +82,7 @@ bool isCjkCodepoint(uint32_t cp) {
 // Knuth-Plass: Calculate badness (looseness) of a line
 // Returns cubic ratio penalty - loose lines are penalized more heavily
 float calculateBadness(int lineWidth, int targetWidth) {
+  if (targetWidth <= 0) return INFINITY_PENALTY;
   if (lineWidth > targetWidth) return INFINITY_PENALTY;
   if (lineWidth == targetWidth) return 0.0f;
   float ratio = static_cast<float>(targetWidth - lineWidth) / static_cast<float>(targetWidth);

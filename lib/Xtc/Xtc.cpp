@@ -133,6 +133,16 @@ bool Xtc::generateCoverBmp() const {
   // Get bit depth
   const uint8_t bitDepth = parser->getBitDepth();
 
+  // Validate dimensions before size calculation to prevent overflow
+  constexpr uint32_t MAX_DIMENSION = 2000;        // Reasonable for e-paper
+  constexpr size_t MAX_BITMAP_SIZE = 512 * 1024;  // 512KB
+
+  if (pageInfo.width == 0 || pageInfo.height == 0 || pageInfo.width > MAX_DIMENSION ||
+      pageInfo.height > MAX_DIMENSION) {
+    Serial.printf("[%lu] [XTC] Invalid dimensions: %ux%u\n", millis(), pageInfo.width, pageInfo.height);
+    return false;
+  }
+
   // Allocate buffer for page data
   // XTG (1-bit): Row-major, ((width+7)/8) * height bytes
   // XTH (2-bit): Two bit planes, column-major, ((width * height + 7) / 8) * 2 bytes
@@ -140,8 +150,14 @@ bool Xtc::generateCoverBmp() const {
   if (bitDepth == 2) {
     bitmapSize = ((static_cast<size_t>(pageInfo.width) * pageInfo.height + 7) / 8) * 2;
   } else {
-    bitmapSize = ((pageInfo.width + 7) / 8) * pageInfo.height;
+    bitmapSize = (static_cast<size_t>(pageInfo.width + 7) / 8) * pageInfo.height;
   }
+
+  if (bitmapSize > MAX_BITMAP_SIZE) {
+    Serial.printf("[%lu] [XTC] Bitmap too large: %zu bytes\n", millis(), bitmapSize);
+    return false;
+  }
+
   uint8_t* pageBuffer = static_cast<uint8_t*>(malloc(bitmapSize));
   if (!pageBuffer) {
     Serial.printf("[%lu] [XTC] Failed to allocate page buffer (%lu bytes)\n", millis(), bitmapSize);

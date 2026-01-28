@@ -790,13 +790,14 @@ void ReaderState::cacheTaskLoop() {
     return;
   }
 
-  // Build cache for current position
+  // Snapshot shared state under mutex to avoid race condition
   xSemaphoreTake(cacheMutex_, portMAX_DELAY);
   bool cacheExists = (pageCache_ != nullptr);
+  Core* corePtr = coreForCacheTask_;
   xSemaphoreGive(cacheMutex_);
 
-  if (!cacheExists && !cacheTaskStopRequested_) {
-    Core& coreRef = *coreForCacheTask_;
+  if (!cacheExists && !cacheTaskStopRequested_ && corePtr) {
+    Core& coreRef = *corePtr;
     ContentType type = coreRef.content.metadata().type;
 
     if (type == ContentType::Epub) {

@@ -5,15 +5,28 @@
 #include <Txt.h>
 #include <Xtc.h>
 
-#include <new>  // For placement new
+#include <cstring>  // For memset
+#include <new>      // For placement new
 
 namespace papyrix {
 
 // Static empty metadata
 ContentMetadata ContentHandle::emptyMetadata_ = {};
 
+// Helper to compute max of variadic sizeof
+template <typename T, typename... Ts>
+struct MaxSize {
+  static constexpr size_t value = sizeof(T) > MaxSize<Ts...>::value ? sizeof(T) : MaxSize<Ts...>::value;
+};
+template <typename T>
+struct MaxSize<T> {
+  static constexpr size_t value = sizeof(T);
+};
+
 ContentHandle::ContentHandle() : type(ContentType::None) {
-  // Union is uninitialized - that's intentional
+  // Zero-initialize entire union for safety
+  constexpr size_t unionSize = MaxSize<EpubProvider, XtcProvider, TxtProvider, MarkdownProvider>::value;
+  memset(&epub, 0, unionSize);
 }
 
 ContentHandle::~ContentHandle() { close(); }

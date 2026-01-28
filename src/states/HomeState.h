@@ -34,8 +34,14 @@ class HomeState : public State {
   bool hasCoverImage_ = false;
   bool coverLoadFailed_ = false;
 
-  // Buffer caching for fast navigation
-  uint8_t* coverBuffer_ = nullptr;
+  // Compressed thumbnail caching (replaces 48KB full buffer with ~2-4KB compressed)
+  static constexpr uint16_t COVER_CACHE_WIDTH = 120;
+  static constexpr uint16_t COVER_CACHE_HEIGHT = 180;
+  static constexpr size_t MAX_COVER_CACHE_SIZE = 4096;
+  uint8_t* compressedThumb_ = nullptr;
+  size_t compressedSize_ = 0;
+  int16_t thumbX_ = 0;  // Position where thumbnail was captured
+  int16_t thumbY_ = 0;
   bool coverBufferStored_ = false;
   bool coverRendered_ = false;
 
@@ -44,7 +50,7 @@ class HomeState : public State {
   std::atomic<bool> coverGenComplete_{false};
   std::string pendingBookPath_;
   std::string pendingCacheDir_;
-  std::string generatedCoverPath_;  // Written by task, read after coverGenComplete_
+  std::string generatedCoverPath_;  // Written by task before release store; read after acquire exchange
 
   void loadLastBook(Core& core);
   void updateBattery();
@@ -54,10 +60,10 @@ class HomeState : public State {
   static void coverGenTrampoline(void* arg);
   void coverGenTask();
 
-  // Buffer caching methods
-  bool storeCoverBuffer();
-  bool restoreCoverBuffer();
-  void freeCoverBuffer();
+  // Compressed thumbnail caching methods
+  bool storeCoverThumbnail();
+  bool restoreCoverThumbnail();
+  void freeCoverThumbnail();
 };
 
 }  // namespace papyrix

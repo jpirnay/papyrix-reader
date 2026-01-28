@@ -5,6 +5,7 @@
 #include <CoverHelpers.h>
 #include <Epub.h>
 #include <GfxRenderer.h>
+#include <Group5.h>
 #include <Markdown.h>
 #include <SDCardManager.h>
 #include <Txt.h>
@@ -24,7 +25,7 @@ HomeState::HomeState(GfxRenderer& renderer) : renderer_(renderer) {}
 
 HomeState::~HomeState() {
   stopCoverGenTask();
-  freeCoverBuffer();
+  freeCoverThumbnail();
 }
 
 void HomeState::enter(Core& core) {
@@ -42,7 +43,7 @@ void HomeState::enter(Core& core) {
 void HomeState::exit(Core& core) {
   Serial.println("[HOME] Exiting");
   stopCoverGenTask();
-  freeCoverBuffer();
+  freeCoverThumbnail();
   view_.clear();
 }
 
@@ -52,7 +53,7 @@ void HomeState::loadLastBook(Core& core) {
   hasCoverImage_ = false;
   coverLoadFailed_ = false;
   coverRendered_ = false;
-  freeCoverBuffer();
+  freeCoverThumbnail();
   stopCoverGenTask();
   coverGenComplete_ = false;
 
@@ -169,9 +170,9 @@ StateTransition HomeState::update(Core& core) {
 }
 
 void HomeState::render(Core& core) {
-  // Check if async cover generation completed
-  if (coverGenComplete_.exchange(false)) {
-    // Copy path from task (safe now that flag was set)
+  // Check if async cover generation completed (acquire pairs with release in task)
+  if (coverGenComplete_.exchange(false, std::memory_order_acquire)) {
+    // Copy path from task (safe now that flag was set with release semantics)
     coverBmpPath_ = generatedCoverPath_;
     if (!coverBmpPath_.empty() && SdMan.exists(coverBmpPath_.c_str())) {
       hasCoverImage_ = true;
@@ -187,8 +188,8 @@ void HomeState::render(Core& core) {
 
   const Theme& theme = THEME;
 
-  // If we have a stored cover buffer, restore it instead of re-reading from SD
-  const bool bufferRestored = coverBufferStored_ && restoreCoverBuffer();
+  // If we have a stored compressed thumbnail, restore it instead of re-reading from SD
+  const bool bufferRestored = coverBufferStored_ && restoreCoverThumbnail();
 
   // When cover is present, HomeState handles clear and card border
   // so cover can be drawn before text boxes
@@ -205,8 +206,8 @@ void HomeState::render(Core& core) {
       if (!coverRendered_) {
         renderCoverToCard();
         if (!coverLoadFailed_) {
-          // Store buffer after first successful render
-          coverBufferStored_ = storeCoverBuffer();
+          // Store compressed thumbnail after first successful render
+          coverBufferStored_ = storeCoverThumbnail();
           coverRendered_ = true;
         }
       }
@@ -272,15 +273,19 @@ void HomeState::coverGenTrampoline(void* arg) {
 }
 
 void HomeState::coverGenTask() {
-  Serial.printf("[HOME] Cover gen task running for: %s\n", pendingBookPath_.c_str());
+  // Copy to locals immediately to avoid use-after-free if main thread modifies
+  std::string bookPath = pendingBookPath_;
+  std::string cacheDir = pendingCacheDir_;
+
+  Serial.printf("[HOME] Cover gen task running for: %s\n", bookPath.c_str());
 
   // Detect content type from file extension
-  ContentType type = detectContentType(pendingBookPath_.c_str());
+  ContentType type = detectContentType(bookPath.c_str());
   bool success = false;
 
   switch (type) {
     case ContentType::Epub: {
-      Epub epub(pendingBookPath_, pendingCacheDir_);
+      Epub epub(bookPath, cacheDir);
       if (epub.load(false) && epub.generateThumbBmp()) {
         generatedCoverPath_ = epub.getThumbBmpPath();
         success = true;
@@ -288,7 +293,7 @@ void HomeState::coverGenTask() {
       break;
     }
     case ContentType::Txt: {
-      Txt txt(pendingBookPath_, pendingCacheDir_);
+      Txt txt(bookPath, cacheDir);
       if (txt.load() && txt.generateThumbBmp()) {
         generatedCoverPath_ = txt.getThumbBmpPath();
         success = true;
@@ -296,7 +301,7 @@ void HomeState::coverGenTask() {
       break;
     }
     case ContentType::Markdown: {
-      Markdown md(pendingBookPath_, pendingCacheDir_);
+      Markdown md(bookPath, cacheDir);
       if (md.load() && md.generateThumbBmp()) {
         generatedCoverPath_ = md.getThumbBmpPath();
         success = true;
@@ -309,7 +314,8 @@ void HomeState::coverGenTask() {
   }
 
   if (success) {
-    coverGenComplete_ = true;
+    // Release fence ensures generatedCoverPath_ write is visible before flag
+    coverGenComplete_.store(true, std::memory_order_release);
     Serial.println("[HOME] Cover generation task completed successfully");
   } else {
     Serial.println("[HOME] Cover generation task failed");
@@ -319,29 +325,133 @@ void HomeState::coverGenTask() {
   vTaskSuspend(nullptr);
 }
 
-bool HomeState::storeCoverBuffer() {
+bool HomeState::storeCoverThumbnail() {
   uint8_t* frameBuffer = renderer_.getFrameBuffer();
   if (!frameBuffer) {
     return false;
   }
 
-  // Free any existing buffer first
-  freeCoverBuffer();
+  // Free any existing thumbnail first
+  freeCoverThumbnail();
 
-  const size_t bufferSize = GfxRenderer::getBufferSize();
-  coverBuffer_ = static_cast<uint8_t*>(malloc(bufferSize));
-  if (!coverBuffer_) {
-    Serial.println("[HOME] Failed to allocate cover buffer");
+  // Calculate cover area position (same logic as renderCoverToCard)
+  const auto card = ui::CardDimensions::calculate(renderer_.getScreenWidth(), renderer_.getScreenHeight());
+  const auto coverArea = card.getCoverArea();
+
+  // Verify cover area is large enough for thumbnail
+  if (coverArea.width < COVER_CACHE_WIDTH || coverArea.height < COVER_CACHE_HEIGHT) {
+    Serial.println("[HOME] Cover area too small for thumbnail");
     return false;
   }
 
-  memcpy(coverBuffer_, frameBuffer, bufferSize);
-  Serial.printf("[HOME] Stored cover buffer (%u bytes)\n", bufferSize);
+  // Use center of cover area for thumbnail extraction
+  // Thumbnail is smaller than cover area, so center it
+  const int srcX = coverArea.x + (coverArea.width - COVER_CACHE_WIDTH) / 2;
+  const int srcY = coverArea.y + (coverArea.height - COVER_CACHE_HEIGHT) / 2;
+
+  // Clamp to valid framebuffer bounds
+  const int screenWidth = renderer_.getScreenWidth();
+  const int screenHeight = renderer_.getScreenHeight();
+  if (srcX < 0 || srcY < 0 || srcX + COVER_CACHE_WIDTH > screenWidth || srcY + COVER_CACHE_HEIGHT > screenHeight) {
+    Serial.println("[HOME] Thumbnail position out of bounds");
+    return false;
+  }
+
+  // Store position for restoration
+  thumbX_ = static_cast<int16_t>(srcX);
+  thumbY_ = static_cast<int16_t>(srcY);
+
+  // Extract thumbnail region from framebuffer and compress with Group5
+  // Framebuffer is 1-bit packed (8 pixels per byte), row-major order
+  const int screenWidthBytes = screenWidth / 8;
+  const int thumbWidthBytes = (COVER_CACHE_WIDTH + 7) / 8;
+  const size_t thumbUncompressedSize = thumbWidthBytes * COVER_CACHE_HEIGHT;
+
+  // For non-aligned access, we read one extra byte per row
+  const int srcBitOffset = srcX % 8;
+  const int srcByteX = srcX / 8;
+  const int bytesNeeded = thumbWidthBytes + (srcBitOffset != 0 ? 1 : 0);
+  if (srcByteX + bytesNeeded > screenWidthBytes) {
+    Serial.println("[HOME] Insufficient source bytes for thumbnail extraction");
+    return false;
+  }
+
+  // Allocate temporary buffer for uncompressed thumbnail
+  uint8_t* thumbBuffer = static_cast<uint8_t*>(malloc(thumbUncompressedSize));
+  if (!thumbBuffer) {
+    Serial.println("[HOME] Failed to allocate temp thumbnail buffer");
+    return false;
+  }
+
+  // Extract thumbnail region from framebuffer
+  // Handle non-byte-aligned X position by bit-shifting
+  for (int row = 0; row < COVER_CACHE_HEIGHT; row++) {
+    const uint8_t* srcRow = frameBuffer + (srcY + row) * screenWidthBytes + srcByteX;
+    uint8_t* dstRow = thumbBuffer + row * thumbWidthBytes;
+
+    if (srcBitOffset == 0) {
+      // Byte-aligned: direct copy
+      memcpy(dstRow, srcRow, thumbWidthBytes);
+    } else {
+      // Non-aligned: need to shift bits
+      for (int col = 0; col < thumbWidthBytes; col++) {
+        uint8_t hi = srcRow[col];
+        uint8_t lo = srcRow[col + 1];
+        dstRow[col] = (hi << srcBitOffset) | (lo >> (8 - srcBitOffset));
+      }
+    }
+  }
+
+  // Allocate output buffer for compressed data
+  compressedThumb_ = static_cast<uint8_t*>(malloc(MAX_COVER_CACHE_SIZE));
+  if (!compressedThumb_) {
+    free(thumbBuffer);
+    Serial.println("[HOME] Failed to allocate compressed thumbnail buffer");
+    return false;
+  }
+
+  // Compress using Group5
+  G5ENCODER encoder;
+  if (encoder.init(COVER_CACHE_WIDTH, COVER_CACHE_HEIGHT, compressedThumb_, MAX_COVER_CACHE_SIZE) != G5_SUCCESS) {
+    free(thumbBuffer);
+    free(compressedThumb_);
+    compressedThumb_ = nullptr;
+    compressedSize_ = 0;
+    Serial.println("[HOME] Group5 encoder init failed");
+    return false;
+  }
+
+  for (int row = 0; row < COVER_CACHE_HEIGHT; row++) {
+    int result = encoder.encodeLine(thumbBuffer + row * thumbWidthBytes);
+    if (result != G5_SUCCESS && result != G5_ENCODE_COMPLETE) {
+      free(thumbBuffer);
+      free(compressedThumb_);
+      compressedThumb_ = nullptr;
+      compressedSize_ = 0;
+      Serial.printf("[HOME] Group5 encode failed at row %d\n", row);
+      return false;
+    }
+  }
+
+  compressedSize_ = encoder.size();
+  free(thumbBuffer);
+
+  // Verify compressed size fits in allocated buffer
+  if (compressedSize_ > MAX_COVER_CACHE_SIZE) {
+    Serial.printf("[HOME] Compressed size %zu exceeds max %zu\n", compressedSize_, MAX_COVER_CACHE_SIZE);
+    free(compressedThumb_);
+    compressedThumb_ = nullptr;
+    compressedSize_ = 0;
+    return false;
+  }
+
+  Serial.printf("[HOME] Stored compressed thumbnail (%zu -> %zu bytes, %.1f%% ratio)\n", thumbUncompressedSize,
+                compressedSize_, 100.0f * compressedSize_ / thumbUncompressedSize);
   return true;
 }
 
-bool HomeState::restoreCoverBuffer() {
-  if (!coverBuffer_) {
+bool HomeState::restoreCoverThumbnail() {
+  if (!compressedThumb_ || compressedSize_ == 0) {
     return false;
   }
 
@@ -350,16 +460,92 @@ bool HomeState::restoreCoverBuffer() {
     return false;
   }
 
-  const size_t bufferSize = GfxRenderer::getBufferSize();
-  memcpy(frameBuffer, coverBuffer_, bufferSize);
+  // First, clear and redraw the card border (text boxes will be redrawn by ui::render)
+  const Theme& theme = THEME;
+  const auto card = ui::CardDimensions::calculate(renderer_.getScreenWidth(), renderer_.getScreenHeight());
+
+  renderer_.clearScreen(theme.backgroundColor);
+  renderer_.drawRect(card.x, card.y, card.width, card.height, theme.primaryTextBlack);
+
+  // Decode compressed thumbnail
+  const int thumbWidthBytes = (COVER_CACHE_WIDTH + 7) / 8;
+  const size_t thumbUncompressedSize = thumbWidthBytes * COVER_CACHE_HEIGHT;
+  uint8_t* thumbBuffer = static_cast<uint8_t*>(malloc(thumbUncompressedSize));
+  if (!thumbBuffer) {
+    Serial.println("[HOME] Failed to allocate decompress buffer");
+    return false;
+  }
+
+  G5DECODER decoder;
+  if (decoder.init(COVER_CACHE_WIDTH, COVER_CACHE_HEIGHT, compressedThumb_, compressedSize_) != G5_SUCCESS) {
+    free(thumbBuffer);
+    Serial.println("[HOME] Group5 decoder init failed");
+    return false;
+  }
+
+  for (int row = 0; row < COVER_CACHE_HEIGHT; row++) {
+    int result = decoder.decodeLine(thumbBuffer + row * thumbWidthBytes);
+    if (result != G5_SUCCESS && result != G5_DECODE_COMPLETE) {
+      free(thumbBuffer);
+      Serial.printf("[HOME] Group5 decode failed at row %d\n", row);
+      return false;
+    }
+  }
+
+  // Write thumbnail back to framebuffer at saved position
+  const int screenWidth = renderer_.getScreenWidth();
+  const int screenHeight = renderer_.getScreenHeight();
+  const int screenWidthBytes = screenWidth / 8;
+  const int dstBitOffset = thumbX_ % 8;
+  const int dstByteX = thumbX_ / 8;
+
+  // Validate saved position is still within bounds
+  if (thumbX_ < 0 || thumbY_ < 0 || thumbX_ + COVER_CACHE_WIDTH > screenWidth ||
+      thumbY_ + COVER_CACHE_HEIGHT > screenHeight) {
+    free(thumbBuffer);
+    Serial.println("[HOME] Thumbnail position out of bounds for restore");
+    return false;
+  }
+
+  // For non-aligned access, we write one extra byte per row
+  const int bytesNeeded = thumbWidthBytes + (dstBitOffset != 0 ? 1 : 0);
+  if (dstByteX + bytesNeeded > screenWidthBytes) {
+    free(thumbBuffer);
+    Serial.println("[HOME] Insufficient destination bytes for thumbnail restore");
+    return false;
+  }
+
+  for (int row = 0; row < COVER_CACHE_HEIGHT; row++) {
+    uint8_t* dstRow = frameBuffer + (thumbY_ + row) * screenWidthBytes + dstByteX;
+    const uint8_t* srcRow = thumbBuffer + row * thumbWidthBytes;
+
+    if (dstBitOffset == 0) {
+      // Byte-aligned: direct copy
+      memcpy(dstRow, srcRow, thumbWidthBytes);
+    } else {
+      // Non-aligned: need to shift bits and merge
+      for (int col = 0; col < thumbWidthBytes; col++) {
+        uint8_t srcByte = srcRow[col];
+        // Merge into destination, preserving bits outside thumbnail
+        uint8_t mask1 = 0xFF >> dstBitOffset;
+        uint8_t mask2 = 0xFF << (8 - dstBitOffset);
+
+        dstRow[col] = (dstRow[col] & ~mask1) | (srcByte >> dstBitOffset);
+        dstRow[col + 1] = (dstRow[col + 1] & ~mask2) | (srcByte << (8 - dstBitOffset));
+      }
+    }
+  }
+
+  free(thumbBuffer);
   return true;
 }
 
-void HomeState::freeCoverBuffer() {
-  if (coverBuffer_) {
-    free(coverBuffer_);
-    coverBuffer_ = nullptr;
+void HomeState::freeCoverThumbnail() {
+  if (compressedThumb_) {
+    free(compressedThumb_);
+    compressedThumb_ = nullptr;
   }
+  compressedSize_ = 0;
   coverBufferStored_ = false;
 }
 

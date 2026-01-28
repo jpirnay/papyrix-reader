@@ -406,7 +406,7 @@ void NetworkState::connectToNetwork(Core& core, const char* ssid, const char* pa
   auto result = core.network.connect(ssid, password);
 
   if (result.ok()) {
-    char ip[16];
+    char ip[46];  // INET6_ADDRSTRLEN = 46 for IPv6 addresses
     core.network.getIpAddress(ip, sizeof(ip));
     connectingView_.setConnected(ip);
     Serial.printf("[NET-STATE] Connected, IP: %s\n", ip);

@@ -105,7 +105,7 @@ void SleepState::renderCustomSleepScreen(const Core& core) const {
   auto dir = SdMan.open("/sleep");
   if (dir && dir.isDirectory()) {
     std::vector<std::string> files;
-    char name[500];
+    char name[256];  // FAT32 LFN max is 255 chars; reduced from 500 to save stack
     // collect all valid BMP files
     for (auto file = dir.openNextFile(); file; file = dir.openNextFile()) {
       if (file.isDirectory()) {

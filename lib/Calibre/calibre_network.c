@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,59 +22,14 @@
 #include "calibre_wireless.h"
 
 #ifdef ESP_PLATFORM
-#include "esp_log.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
-#define LOG_TAG "calibre_net"
-#define LOGI(...) ESP_LOGI(LOG_TAG, __VA_ARGS__)
-#define LOGW(...) ESP_LOGW(LOG_TAG, __VA_ARGS__)
-#define LOGE(...) ESP_LOGE(LOG_TAG, __VA_ARGS__)
-#define LOGD(...) ESP_LOGD(LOG_TAG, __VA_ARGS__)
 #else
 #include <netdb.h>
-#define LOGI(...)             \
-  printf("[I] " __VA_ARGS__); \
-  printf("\n")
-#define LOGW(...)             \
-  printf("[W] " __VA_ARGS__); \
-  printf("\n")
-#define LOGE(...)             \
-  printf("[E] " __VA_ARGS__); \
-  printf("\n")
-#define LOGD(...)             \
-  printf("[D] " __VA_ARGS__); \
-  printf("\n")
 #endif
 
-/* Broadcast ports for discovery */
-static const uint16_t s_broadcast_ports[CALIBRE_BROADCAST_PORT_COUNT] = CALIBRE_BROADCAST_PORTS;
-
-/* ============================================================================
- * Socket Utilities
- * ============================================================================ */
-
-static int socket_set_nonblocking(int sock) {
-  int flags = fcntl(sock, F_GETFL, 0);
-  if (flags < 0) return -1;
-  return fcntl(sock, F_SETFL, flags | O_NONBLOCK);
-}
-
-static int socket_set_blocking(int sock) {
-  int flags = fcntl(sock, F_GETFL, 0);
-  if (flags < 0) return -1;
-  return fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
-}
-
-static int socket_set_timeout(int sock, uint32_t timeout_ms) {
-  struct timeval tv;
-  tv.tv_sec = timeout_ms / 1000;
-  tv.tv_usec = (timeout_ms % 1000) * 1000;
-
-  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-    return -1;
-  }
-  return setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-}
+/* Log tag for this module */
+#define TAG CAL_LOG_TAG_NET
 
 /* ============================================================================
  * UDP Discovery
@@ -90,52 +46,61 @@ calibre_err_t calibre_start_discovery(calibre_conn_t* conn, uint16_t port) {
 
   conn->listen_port = port ? port : CALIBRE_DEFAULT_PORT;
 
-  /* Create UDP sockets for each broadcast port */
+  /* Reset discovery state */
+  conn->calibre_discovered = 0;
+  memset(&conn->calibre_addr, 0, sizeof(conn->calibre_addr));
+  conn->calibre_port = 0;
+
+  /* Create UDP sockets for each broadcast port
+   * We need to both broadcast "hello" and listen for Calibre's response */
   for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-      LOGE("Failed to create UDP socket: %s", strerror(errno));
+      CAL_LOGE(TAG, "Failed to create UDP socket: %s", strerror(errno));
       continue;
     }
 
-    /* Allow address reuse */
+    /* Allow address reuse and broadcasting */
     int opt = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    (void)setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt));
 
-    /* Bind to broadcast port */
+    /* Bind to any available port to receive responses */
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(s_broadcast_ports[i]);
+    addr.sin_port = htons(0); /* Let system assign port */
 
     if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-      LOGW("Failed to bind to port %d: %s", s_broadcast_ports[i], strerror(errno));
+      CAL_LOGW(TAG, "Failed to bind UDP socket: %s", strerror(errno));
       close(sock);
       continue;
     }
 
     /* Set non-blocking */
-    socket_set_nonblocking(sock);
+    calibre_socket_set_nonblocking(sock);
 
     conn->udp_sockets[i] = sock;
-    LOGD("Listening on UDP port %d", s_broadcast_ports[i]);
+    CAL_LOGD(TAG, "UDP socket %d created for discovery", i);
   }
 
-  /* Check if we bound to at least one port */
-  int bound_count = 0;
+  /* Check if we created at least one socket */
+  int created_count = 0;
   for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
-    if (conn->udp_sockets[i] >= 0) bound_count++;
+    if (conn->udp_sockets[i] >= 0) created_count++;
   }
 
-  if (bound_count == 0) {
-    calibre_set_error(conn, CALIBRE_ERR_SOCKET, "Failed to bind to any discovery port");
+  if (created_count == 0) {
+    calibre_set_error(conn, CALIBRE_ERR_SOCKET, "Failed to create any UDP socket");
     return CALIBRE_ERR_SOCKET;
   }
 
   conn->discovery_active = 1;
   conn->state = CALIBRE_STATE_DISCOVERY;
-  LOGI("Discovery started on %d ports, advertising port %d", bound_count, conn->listen_port);
+  conn->discovery_broadcast_count = 0; /* Reset broadcast counter */
+  conn->discovery_last_broadcast = 0;  /* Force immediate broadcast */
+  CAL_LOGI(TAG, "Discovery started, will broadcast 'hello' on %d ports", created_count);
 
   return CALIBRE_OK;
 }
@@ -154,38 +119,83 @@ void calibre_stop_discovery(calibre_conn_t* conn) {
   if (conn->state == CALIBRE_STATE_DISCOVERY) {
     conn->state = CALIBRE_STATE_IDLE;
   }
-  LOGI("Discovery stopped");
+  CAL_LOGI(TAG, "Discovery stopped");
 }
 
 /**
  * @brief Process UDP discovery messages
  *
- * Calibre broadcasts "hi there" message, we respond with our TCP port
+ * Device broadcasts "hello" message, Calibre responds with its info.
+ * We then connect to Calibre as a TCP client.
+ *
+ * Calibre response format: "calibre wireless device client (on <hostname>);<content_port>,<smart_device_port>"
  */
 static calibre_err_t calibre_process_discovery(calibre_conn_t* conn) {
-  char buf[64];
-  struct sockaddr_in client_addr;
-  socklen_t addr_len = sizeof(client_addr);
+  char buf[256];
+  struct sockaddr_in from_addr;
+  socklen_t addr_len = sizeof(from_addr);
 
+  /* Broadcast "hello" periodically (every 500ms) */
+  uint32_t now = calibre_millis();
+  if (!conn->calibre_discovered && conn->discovery_broadcast_count < CALIBRE_MAX_DISCOVERY_BROADCASTS) {
+    if (now - conn->discovery_last_broadcast >= 500) {
+      const char* hello_msg = "hello";
+
+      for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
+        if (conn->udp_sockets[i] < 0) continue;
+
+        struct sockaddr_in broadcast_addr;
+        memset(&broadcast_addr, 0, sizeof(broadcast_addr));
+        broadcast_addr.sin_family = AF_INET;
+        broadcast_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+        broadcast_addr.sin_port = htons(calibre_broadcast_ports[i]);
+
+        ssize_t sent = sendto(conn->udp_sockets[i], hello_msg, strlen(hello_msg), 0, (struct sockaddr*)&broadcast_addr,
+                              sizeof(broadcast_addr));
+        if (sent < 0) {
+          CAL_LOGW(TAG, "Failed to broadcast 'hello' on port %d: %s", calibre_broadcast_ports[i], strerror(errno));
+        }
+      }
+
+      conn->discovery_last_broadcast = now;
+      conn->discovery_broadcast_count++;
+      CAL_LOGD(TAG, "Broadcast 'hello' (%d/20)", conn->discovery_broadcast_count);
+    }
+  }
+
+  /* Listen for responses from Calibre */
   for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
     if (conn->udp_sockets[i] < 0) continue;
 
     ssize_t len =
-        recvfrom(conn->udp_sockets[i], buf, sizeof(buf) - 1, MSG_DONTWAIT, (struct sockaddr*)&client_addr, &addr_len);
+        recvfrom(conn->udp_sockets[i], buf, sizeof(buf) - 1, MSG_DONTWAIT, (struct sockaddr*)&from_addr, &addr_len);
 
     if (len > 0) {
       buf[len] = '\0';
-      LOGD("UDP received from %s:%d: %s", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buf);
+      CAL_LOGI(TAG, "UDP received from %s:%d: %s", inet_ntoa(from_addr.sin_addr), ntohs(from_addr.sin_port), buf);
 
-      /* Check for Calibre discovery message */
-      if (strstr(buf, "hi there") || strstr(buf, "calibre")) {
-        /* Respond with our TCP port */
-        char response[32];
-        snprintf(response, sizeof(response), "%d", conn->listen_port);
+      /* Check for Calibre response message containing "calibre" */
+      if (strstr(buf, "calibre")) {
+        /* Parse Calibre's port from the message */
+        /* Format: "calibre wireless device client (on <hostname>);<content_port>,<smart_device_port>" */
+        uint16_t calibre_port = CALIBRE_DEFAULT_PORT; /* Default port */
 
-        sendto(conn->udp_sockets[i], response, strlen(response), 0, (struct sockaddr*)&client_addr, addr_len);
+        /* Try to extract port from message - look for the last comma */
+        char* port_ptr = strrchr(buf, ',');
+        if (port_ptr) {
+          char* endptr = NULL;
+          long parsed_port = strtol(port_ptr + 1, &endptr, 10);
+          if (endptr != port_ptr + 1 && parsed_port > 0 && parsed_port <= 65535) {
+            calibre_port = (uint16_t)parsed_port;
+          }
+        }
 
-        LOGI("Responded to Calibre discovery with port %d", conn->listen_port);
+        /* Store Calibre's address for connection */
+        memcpy(&conn->calibre_addr, &from_addr, sizeof(from_addr));
+        conn->calibre_port = calibre_port;
+        conn->calibre_discovered = 1;
+
+        CAL_LOGI(TAG, "Calibre discovered at %s:%d, ready to connect", inet_ntoa(from_addr.sin_addr), calibre_port);
       }
     }
   }
@@ -206,7 +216,7 @@ calibre_err_t calibre_connect(calibre_conn_t* conn, const char* host, uint16_t p
     calibre_disconnect(conn);
   }
 
-  LOGI("Connecting to %s:%d", host, port);
+  CAL_LOGI(TAG, "Connecting to %s:%d", host, port);
 
   /* Create TCP socket */
   int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -216,23 +226,34 @@ calibre_err_t calibre_connect(calibre_conn_t* conn, const char* host, uint16_t p
   }
 
   /* Set timeouts */
-  socket_set_timeout(sock, CALIBRE_CONNECT_TIMEOUT_MS);
+  calibre_socket_set_timeout(sock, CALIBRE_CONNECT_TIMEOUT_MS);
 
-  /* Resolve hostname */
+  /* Resolve hostname using getaddrinfo (modern, thread-safe) */
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
 
   if (inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
-    /* Try DNS resolution */
-    struct hostent* he = gethostbyname(host);
-    if (!he) {
+    /* Try DNS resolution with getaddrinfo */
+    struct addrinfo hints, *res = NULL;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int ret = getaddrinfo(host, NULL, &hints, &res);
+    if (ret != 0 || !res) {
       close(sock);
       calibre_set_error(conn, CALIBRE_ERR_CONNECT, "DNS resolution failed");
       return CALIBRE_ERR_CONNECT;
     }
-    memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(addr.sin_addr));
+
+    /* Copy the resolved address */
+    struct sockaddr_in* resolved = (struct sockaddr_in*)res->ai_addr;
+    addr.sin_addr = resolved->sin_addr;
+
+    /* Free the addrinfo result */
+    freeaddrinfo(res);
   }
 
   /* Connect */
@@ -242,15 +263,42 @@ calibre_err_t calibre_connect(calibre_conn_t* conn, const char* host, uint16_t p
     return CALIBRE_ERR_CONNECT;
   }
 
+  /* Disable Nagle's algorithm for low latency (ignore failure - not critical) */
+  int nodelay = 1;
+  (void)setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
   /* Set receive timeout for normal operation */
-  socket_set_timeout(sock, CALIBRE_RECV_TIMEOUT_MS);
+  calibre_socket_set_timeout(sock, CALIBRE_RECV_TIMEOUT_MS);
 
   conn->tcp_socket = sock;
   conn->server_addr = addr;
   conn->state = CALIBRE_STATE_HANDSHAKE;
 
-  LOGI("TCP connected to %s:%d", host, port);
+  CAL_LOGI(TAG, "TCP connected to %s:%d", host, port);
   return CALIBRE_OK;
+}
+
+calibre_err_t calibre_connect_to_discovered(calibre_conn_t* conn) {
+  if (!conn) {
+    return CALIBRE_ERR_INVALID_ARG;
+  }
+
+  if (!conn->calibre_discovered) {
+    calibre_set_error(conn, CALIBRE_ERR_CONNECT, "Calibre not discovered yet");
+    return CALIBRE_ERR_CONNECT;
+  }
+
+  if (conn->connected || conn->tcp_socket >= 0) {
+    return CALIBRE_OK; /* Already connected */
+  }
+
+  /* Extract IP address from discovered address */
+  char ip_str[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &conn->calibre_addr.sin_addr, ip_str, sizeof(ip_str));
+
+  CAL_LOGI(TAG, "Connecting to discovered Calibre at %s:%d", ip_str, conn->calibre_port);
+
+  return calibre_connect(conn, ip_str, conn->calibre_port);
 }
 
 void calibre_disconnect(calibre_conn_t* conn) {
@@ -265,7 +313,7 @@ void calibre_disconnect(calibre_conn_t* conn) {
   conn->state = CALIBRE_STATE_IDLE;
   calibre_buf_reset(&conn->recv_buf);
 
-  LOGI("Disconnected");
+  CAL_LOGI(TAG, "Disconnected");
 }
 
 /* ============================================================================
@@ -300,40 +348,35 @@ static calibre_err_t tcp_send_all(calibre_conn_t* conn, const void* data, size_t
 }
 
 /**
- * @brief Receive exact number of bytes
+ * @brief Receive exact number of bytes with timeout
+ *
+ * Uses calibre_millis() for deadline tracking and calibre_socket_wait_readable()
+ * for efficient socket polling.
+ *
+ * Note: uint32_t subtraction handles timer wraparound correctly for timeouts
+ * under ~24 days (2^31 ms). Device uptime beyond 49 days would wrap calibre_millis()
+ * but subtraction still yields correct elapsed time due to unsigned arithmetic.
  */
 static calibre_err_t tcp_recv_exact(calibre_conn_t* conn, void* data, size_t len, uint32_t timeout_ms) {
   uint8_t* ptr = (uint8_t*)data;
   size_t remaining = len;
-
-  struct timeval start, now;
-  gettimeofday(&start, NULL);
+  uint32_t start_ms = calibre_millis();
 
   while (remaining > 0) {
     if (conn->cancelled) {
       return CALIBRE_ERR_CANCELLED;
     }
 
-    /* Check timeout */
-    gettimeofday(&now, NULL);
-    uint32_t elapsed = (now.tv_sec - start.tv_sec) * 1000 + (now.tv_usec - start.tv_usec) / 1000;
-    if (elapsed > timeout_ms) {
+    /* Check deadline - unsigned subtraction handles wraparound correctly */
+    uint32_t elapsed = calibre_millis() - start_ms;
+    if (elapsed >= timeout_ms) {
       return CALIBRE_ERR_TIMEOUT;
     }
 
-    /* Use select for timeout */
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(conn->tcp_socket, &rfds);
-
-    struct timeval tv;
+    /* Wait for data with remaining timeout */
     uint32_t remaining_ms = timeout_ms - elapsed;
-    tv.tv_sec = remaining_ms / 1000;
-    tv.tv_usec = (remaining_ms % 1000) * 1000;
-
-    int ret = select(conn->tcp_socket + 1, &rfds, NULL, NULL, &tv);
+    int ret = calibre_socket_wait_readable(conn->tcp_socket, remaining_ms);
     if (ret < 0) {
-      if (errno == EINTR) continue;
       calibre_set_error(conn, CALIBRE_ERR_SOCKET, strerror(errno));
       return CALIBRE_ERR_SOCKET;
     }
@@ -341,6 +384,7 @@ static calibre_err_t tcp_recv_exact(calibre_conn_t* conn, void* data, size_t len
       return CALIBRE_ERR_TIMEOUT;
     }
 
+    /* Read available data */
     ssize_t received = recv(conn->tcp_socket, ptr, remaining, 0);
     if (received < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -361,19 +405,19 @@ static calibre_err_t tcp_recv_exact(calibre_conn_t* conn, void* data, size_t len
   return CALIBRE_OK;
 }
 
-calibre_err_t calibre_send_msg(calibre_conn_t* conn, const char* opcode, const char* json_payload) {
+calibre_err_t calibre_send_msg(calibre_conn_t* conn, int opcode, const char* json_payload) {
   if (!conn || conn->tcp_socket < 0) {
     return CALIBRE_ERR_INVALID_ARG;
   }
 
-  /* Build message: [opcode, payload] as JSON array */
+  /* Build message: [opcode, payload] as JSON array - opcode is INTEGER */
   char msg_buf[CALIBRE_JSON_BUF_SIZE];
   int msg_len;
 
   if (json_payload && json_payload[0]) {
-    msg_len = snprintf(msg_buf, sizeof(msg_buf), "[\"%s\", %s]", opcode, json_payload);
+    msg_len = snprintf(msg_buf, sizeof(msg_buf), "[%d, %s]", opcode, json_payload);
   } else {
-    msg_len = snprintf(msg_buf, sizeof(msg_buf), "[\"%s\", {}]", opcode);
+    msg_len = snprintf(msg_buf, sizeof(msg_buf), "[%d, {}]", opcode);
   }
 
   if (msg_len < 0 || msg_len >= (int)sizeof(msg_buf)) {
@@ -385,7 +429,7 @@ calibre_err_t calibre_send_msg(calibre_conn_t* conn, const char* opcode, const c
   char len_prefix[16];
   int prefix_len = snprintf(len_prefix, sizeof(len_prefix), "%d", msg_len);
 
-  LOGD("Sending: %s%s", len_prefix, msg_buf);
+  CAL_LOGI(TAG, "Sending: %s%s", len_prefix, msg_buf);
 
   calibre_err_t err = tcp_send_all(conn, len_prefix, prefix_len);
   if (err != CALIBRE_OK) return err;
@@ -393,8 +437,7 @@ calibre_err_t calibre_send_msg(calibre_conn_t* conn, const char* opcode, const c
   return tcp_send_all(conn, msg_buf, msg_len);
 }
 
-calibre_err_t calibre_recv_msg(calibre_conn_t* conn, char* opcode_buf, size_t opcode_size, char** json_out,
-                               uint32_t timeout_ms) {
+calibre_err_t calibre_recv_msg(calibre_conn_t* conn, int* opcode_out, char** json_out, uint32_t timeout_ms) {
   if (!conn || conn->tcp_socket < 0) {
     return CALIBRE_ERR_INVALID_ARG;
   }
@@ -414,6 +457,8 @@ calibre_err_t calibre_recv_msg(calibre_conn_t* conn, char* opcode_buf, size_t op
     len_pos++;
   }
 
+  /* Save the first message byte before null-terminating length string */
+  const char first_msg_byte = len_buf[len_pos];
   len_buf[len_pos] = '\0';
   size_t msg_len = strtoul(len_buf, NULL, 10);
 
@@ -431,10 +476,16 @@ calibre_err_t calibre_recv_msg(calibre_conn_t* conn, char* opcode_buf, size_t op
     }
   }
 
+  /* Verify buffer allocation succeeded */
+  if (!conn->recv_buf.data) {
+    calibre_set_error(conn, CALIBRE_ERR_NOMEM, "Receive buffer allocation failed");
+    return CALIBRE_ERR_NOMEM;
+  }
+
   calibre_buf_reset(&conn->recv_buf);
 
   /* We already read the first byte of the message (the '[') */
-  conn->recv_buf.data[0] = len_buf[len_pos]; /* This was the non-digit we stopped at */
+  conn->recv_buf.data[0] = (uint8_t)first_msg_byte;
 
   /* Read rest of message */
   calibre_err_t err = tcp_recv_exact(conn, conn->recv_buf.data + 1, msg_len - 1, timeout_ms);
@@ -443,39 +494,37 @@ calibre_err_t calibre_recv_msg(calibre_conn_t* conn, char* opcode_buf, size_t op
   conn->recv_buf.data[msg_len] = '\0';
   conn->recv_buf.len = msg_len;
 
-  LOGD("Received: %s", (char*)conn->recv_buf.data);
+  CAL_LOGI(TAG, "Received: %s", (char*)conn->recv_buf.data);
 
-  /* Parse JSON array: ["OPCODE", {...}] */
+  /* Parse JSON array: [opcode, {...}] - opcode is INTEGER */
   char* json = (char*)conn->recv_buf.data;
 
-  /* Find first string (opcode) */
-  char* op_start = strchr(json, '"');
-  if (!op_start) {
-    calibre_set_error(conn, CALIBRE_ERR_JSON_PARSE, "Missing opcode");
-    return CALIBRE_ERR_JSON_PARSE;
-  }
-  op_start++; /* Skip opening quote */
+  /* Find first integer (opcode) - format is [123, {...}] */
+  /* Skip the opening bracket */
+  char* ptr = json + 1;
+  while (*ptr && (*ptr == ' ' || *ptr == '\t')) ptr++;
 
-  char* op_end = strchr(op_start, '"');
-  if (!op_end) {
-    calibre_set_error(conn, CALIBRE_ERR_JSON_PARSE, "Malformed opcode");
+  /* Parse integer opcode */
+  if (*ptr < '0' || *ptr > '9') {
+    calibre_set_error(conn, CALIBRE_ERR_JSON_PARSE, "Missing or invalid opcode");
     return CALIBRE_ERR_JSON_PARSE;
   }
 
-  size_t op_len = op_end - op_start;
-  if (op_len >= opcode_size) {
-    op_len = opcode_size - 1;
+  long opcode_long = strtol(ptr, &ptr, 10);
+  if (opcode_long < 0 || opcode_long > 255) {
+    calibre_set_error(conn, CALIBRE_ERR_JSON_PARSE, "Opcode out of range");
+    return CALIBRE_ERR_JSON_PARSE;
   }
-  memcpy(opcode_buf, op_start, op_len);
-  opcode_buf[op_len] = '\0';
+  if (opcode_out) {
+    *opcode_out = (int)opcode_long;
+  }
 
   /* Find payload (after comma and whitespace) */
   if (json_out) {
-    char* payload = op_end + 1;
-    while (*payload && (*payload == ',' || *payload == ' ' || *payload == '\t')) {
-      payload++;
+    while (*ptr && (*ptr == ',' || *ptr == ' ' || *ptr == '\t')) {
+      ptr++;
     }
-    *json_out = payload;
+    *json_out = ptr;
   }
 
   return CALIBRE_OK;
@@ -495,27 +544,39 @@ calibre_err_t calibre_process(calibre_conn_t* conn, uint32_t timeout_ms) {
   /* Process UDP discovery */
   if (conn->discovery_active) {
     calibre_process_discovery(conn);
+
+    /* If Calibre was discovered and we're not connected, connect to it */
+    if (conn->calibre_discovered && conn->tcp_socket < 0) {
+      err = calibre_connect_to_discovered(conn);
+      if (err == CALIBRE_OK) {
+        /* Stop discovery once connected */
+        for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
+          if (conn->udp_sockets[i] >= 0) {
+            close(conn->udp_sockets[i]);
+            conn->udp_sockets[i] = -1;
+          }
+        }
+        conn->discovery_active = 0;
+        CAL_LOGI(TAG, "Connected to Calibre, discovery stopped");
+      } else if (err != CALIBRE_ERR_CONNECT) {
+        /* Non-connection errors are serious */
+        return err;
+      }
+      err = CALIBRE_OK;
+    }
   }
 
   /* Process TCP connection */
   if (conn->tcp_socket >= 0 && conn->state >= CALIBRE_STATE_HANDSHAKE) {
-    /* Check for incoming data */
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(conn->tcp_socket, &rfds);
-
-    struct timeval tv;
-    tv.tv_sec = timeout_ms / 1000;
-    tv.tv_usec = (timeout_ms % 1000) * 1000;
-
-    int ret = select(conn->tcp_socket + 1, &rfds, NULL, NULL, &tv);
+    /* Check for incoming data using shared helper */
+    int ret = calibre_socket_wait_readable(conn->tcp_socket, timeout_ms);
 
     if (ret > 0) {
       /* Data available, receive message */
-      char opcode[32];
+      int opcode = -1;
       char* json = NULL;
 
-      err = calibre_recv_msg(conn, opcode, sizeof(opcode), &json, timeout_ms ? timeout_ms : CALIBRE_RECV_TIMEOUT_MS);
+      err = calibre_recv_msg(conn, &opcode, &json, timeout_ms ? timeout_ms : CALIBRE_RECV_TIMEOUT_MS);
 
       if (err != CALIBRE_OK) {
         if (err == CALIBRE_ERR_DISCONNECTED) {
@@ -525,28 +586,58 @@ calibre_err_t calibre_process(calibre_conn_t* conn, uint32_t timeout_ms) {
         return err;
       }
 
-      /* Dispatch to appropriate handler */
-      if (strcmp(opcode, "GET_INITIALIZATION_INFO") == 0) {
-        err = calibre_handle_init_info(conn, json);
-      } else if (strcmp(opcode, "SET_LIBRARY_INFO") == 0) {
-        err = calibre_handle_library_info(conn, json);
-      } else if (strcmp(opcode, "FREE_SPACE") == 0) {
-        err = calibre_handle_free_space(conn, json);
-      } else if (strcmp(opcode, "SEND_BOOK") == 0) {
-        err = calibre_handle_send_book(conn, json);
-      } else if (strcmp(opcode, "SEND_BOOKLISTS") == 0) {
-        err = calibre_handle_booklists(conn, json);
-      } else if (strcmp(opcode, "DISPLAY_MESSAGE") == 0) {
-        err = calibre_handle_message(conn, json);
-      } else if (strcmp(opcode, "NOOP") == 0) {
-        err = calibre_handle_noop(conn);
-      } else if (strcmp(opcode, "OK") == 0) {
-        /* Server acknowledged our message */
-        LOGD("Server acknowledged");
-      } else {
-        LOGW("Unknown opcode: %s", opcode);
+      /* Dispatch to appropriate handler using integer opcodes */
+      switch (opcode) {
+        case CALIBRE_OP_GET_INITIALIZATION_INFO:
+          err = calibre_handle_init_info(conn, json);
+          break;
+        case CALIBRE_OP_GET_DEVICE_INFORMATION:
+          err = calibre_handle_device_info(conn, json);
+          break;
+        case CALIBRE_OP_SET_CALIBRE_DEVICE_INFO:
+        case CALIBRE_OP_SET_CALIBRE_DEVICE_NAME:
+          /* Simple acknowledgment */
+          err = calibre_send_msg(conn, CALIBRE_OP_OK, "{}");
+          break;
+        case CALIBRE_OP_SET_LIBRARY_INFO:
+          err = calibre_handle_library_info(conn, json);
+          break;
+        case CALIBRE_OP_TOTAL_SPACE:
+          err = calibre_handle_total_space(conn, json);
+          break;
+        case CALIBRE_OP_FREE_SPACE:
+          err = calibre_handle_free_space(conn, json);
+          break;
+        case CALIBRE_OP_GET_BOOK_COUNT:
+          err = calibre_handle_book_count(conn, json);
+          break;
+        case CALIBRE_OP_SEND_BOOK:
+          err = calibre_handle_send_book(conn, json);
+          break;
+        case CALIBRE_OP_SEND_BOOKLISTS:
+          err = calibre_handle_booklists(conn, json);
+          break;
+        case CALIBRE_OP_SEND_BOOK_METADATA:
+          err = calibre_handle_book_metadata(conn, json);
+          break;
+        case CALIBRE_OP_DISPLAY_MESSAGE:
+          err = calibre_handle_message(conn, json);
+          break;
+        case CALIBRE_OP_DELETE_BOOK:
+          err = calibre_handle_delete_book(conn, json);
+          break;
+        case CALIBRE_OP_NOOP:
+          err = calibre_handle_noop(conn, json);
+          break;
+        case CALIBRE_OP_OK:
+          /* Server acknowledged our message */
+          CAL_LOGD(TAG, "Server acknowledged");
+          break;
+        default:
+          CAL_LOGW(TAG, "Unknown opcode: %d", opcode);
+          break;
       }
-    } else if (ret < 0 && errno != EINTR) {
+    } else if (ret < 0) {
       calibre_set_error(conn, CALIBRE_ERR_SOCKET, strerror(errno));
       return CALIBRE_ERR_SOCKET;
     }

@@ -65,6 +65,11 @@
 #define CONFIG_THEMES_DIR CONFIG_DIR "/themes"
 #define CONFIG_FONTS_DIR CONFIG_DIR "/fonts"
 
+// Calibre sync settings
+#define CALIBRE_BOOKS_DIR "/Calibre"
+#define CALIBRE_PORT 9090
+#define CALIBRE_PROCESS_TIMEOUT_MS 50
+
 // Applies custom theme fonts for the currently selected font size.
 // Call this after font size or theme changes to reload fonts.
 void applyThemeFonts();

@@ -29,6 +29,7 @@ class CalibreSyncState : public State {
   ui::CalibreView calibreView_ = {};
   bool needsRender_;
   bool goBack_;
+  bool restartConn_;  // Flag to restart Calibre connection without WiFi shutdown
   bool syncComplete_;
 
   // Calibre connection (heap-allocated only when active)
@@ -40,12 +41,19 @@ class CalibreSyncState : public State {
   static bool onProgress(void* ctx, uint64_t current, uint64_t total);
   static void onBook(void* ctx, const calibre_book_meta_t* meta, const char* path);
   static void onMessage(void* ctx, const char* message);
+  static bool onDelete(void* ctx, const char* lpath);
 
   // Handle button input
   void handleInput(Core& core, Button button);
 
+  // Initialize Calibre connection (called from enter() and restartConnection())
+  void initializeCalibre(Core& core);
+
   // Cleanup and prepare for restart
   void cleanup();
+
+  // Restart Calibre connection without shutting down WiFi
+  void restartConnection(Core& core);
 };
 
 }  // namespace papyrix

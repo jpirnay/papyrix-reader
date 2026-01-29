@@ -2,7 +2,10 @@
 
 #include <Arduino.h>
 #include <GfxRenderer.h>
+#include <errno.h>
+#include <unistd.h>
 
+#include "../config.h"
 #include "../core/Core.h"
 #include "../ui/Elements.h"
 #include "ThemeManager.h"
@@ -10,9 +13,6 @@
 namespace papyrix {
 
 namespace {
-constexpr const char* BOOKS_DIR = "/Books";
-constexpr uint16_t CALIBRE_PORT = 9090;
-constexpr uint32_t PROCESS_TIMEOUT_MS = 50;
 
 inline int32_t saturateToInt32(uint64_t value) { return value > INT32_MAX ? INT32_MAX : static_cast<int32_t>(value); }
 }  // namespace
@@ -21,6 +21,7 @@ CalibreSyncState::CalibreSyncState(GfxRenderer& renderer)
     : renderer_(renderer),
       needsRender_(true),
       goBack_(false),
+      restartConn_(false),
       syncComplete_(false),
       conn_(nullptr),
       libraryInitialized_(false),
@@ -33,6 +34,7 @@ void CalibreSyncState::enter(Core& core) {
 
   needsRender_ = true;
   goBack_ = false;
+  restartConn_ = false;
   syncComplete_ = false;
   libraryInitialized_ = false;
   booksReceived_ = 0;
@@ -40,6 +42,11 @@ void CalibreSyncState::enter(Core& core) {
   // Clear pending sync mode now that we've entered
   core.pendingSync = SyncMode::None;
 
+  // Initialize Calibre connection
+  initializeCalibre(core);
+}
+
+void CalibreSyncState::initializeCalibre(Core& core) {
   calibreView_.setWaiting();
 
   // Initialize Calibre library
@@ -60,16 +67,19 @@ void CalibreSyncState::enter(Core& core) {
   snprintf(config.manufacturer, sizeof(config.manufacturer), "Papyrix");
   snprintf(config.model, sizeof(config.model), "X4");
 
-  // Add supported formats
+  // Add supported formats (Xteink: epub, txt, md, xtc, xtch)
   calibre_device_config_add_ext(&config, "epub");
   calibre_device_config_add_ext(&config, "txt");
+  calibre_device_config_add_ext(&config, "md");
+  calibre_device_config_add_ext(&config, "xtc");
+  calibre_device_config_add_ext(&config, "xtch");
 
   // Safety: don't allow deletion from Calibre
   config.can_delete_books = 0;
 
   // Set up callbacks with this pointer as context
   calibre_callbacks_t callbacks = {
-      .on_progress = onProgress, .on_book = onBook, .on_message = onMessage, .user_ctx = this};
+      .on_progress = onProgress, .on_book = onBook, .on_message = onMessage, .on_delete = onDelete, .user_ctx = this};
 
   // Create connection
   conn_ = calibre_conn_create(&config, &callbacks);
@@ -83,17 +93,15 @@ void CalibreSyncState::enter(Core& core) {
   }
 
   // Set books directory
-  calibre_set_books_dir(conn_, BOOKS_DIR);
+  calibre_set_books_dir(conn_, CALIBRE_BOOKS_DIR);
 
-  // Get IP address to display
+  // Get IP address to display with help text
   char ip[46];
   core.network.getIpAddress(ip, sizeof(ip));
+  calibreView_.setWaitingWithIP(ip);
 
-  // Update view with waiting message including IP
-  snprintf(calibreView_.statusMsg, sizeof(calibreView_.statusMsg), "IP: %s", ip);
-
-  // Start discovery listener
-  err = calibre_start_discovery(conn_, CALIBRE_PORT);
+  // Start discovery (broadcast to find Calibre server)
+  err = calibre_start_discovery(conn_, 0);  // Port parameter not used for client mode
   if (err != CALIBRE_OK) {
     Serial.printf("[CAL-STATE] Failed to start discovery: %s\n", calibre_err_str(err));
     calibreView_.setError("Discovery failed");
@@ -102,7 +110,7 @@ void CalibreSyncState::enter(Core& core) {
     return;
   }
 
-  Serial.printf("[CAL-STATE] Discovery started on port %d, IP: %s\n", CALIBRE_PORT, ip);
+  Serial.printf("[CAL-STATE] Discovery started, IP: %s\n", ip);
 }
 
 void CalibreSyncState::exit(Core& core) {
@@ -115,7 +123,7 @@ void CalibreSyncState::exit(Core& core) {
 StateTransition CalibreSyncState::update(Core& core) {
   // Poll Calibre protocol if connection active
   if (conn_) {
-    calibre_err_t err = calibre_process(conn_, PROCESS_TIMEOUT_MS);
+    calibre_err_t err = calibre_process(conn_, CALIBRE_PROCESS_TIMEOUT_MS);
 
     if (err != CALIBRE_OK && err != CALIBRE_ERR_TIMEOUT) {
       Serial.printf("[CAL-STATE] Process error: %s\n", calibre_err_str(err));
@@ -127,17 +135,13 @@ StateTransition CalibreSyncState::update(Core& core) {
           calibreView_.setComplete(booksReceived_);
           needsRender_ = true;
         } else {
-          // Re-enable discovery for reconnection
-          calibre_err_t discErr = calibre_start_discovery(conn_, CALIBRE_PORT);
-          if (discErr != CALIBRE_OK) {
-            calibreView_.setError("Discovery restart failed");
-          } else {
-            calibreView_.setWaiting();
-          }
+          // Show disconnected message with restart option
+          calibreView_.setDisconnected();
           needsRender_ = true;
         }
       } else if (err != CALIBRE_ERR_BUSY) {
         calibreView_.setError(calibre_err_str(err));
+        cleanup();  // Stop processing broken connection
         needsRender_ = true;
       }
     }
@@ -160,6 +164,11 @@ StateTransition CalibreSyncState::update(Core& core) {
     goBack_ = false;
     // exit() will handle restart
     return StateTransition::to(StateId::Sync);
+  }
+
+  if (restartConn_) {
+    restartConn_ = false;
+    restartConnection(core);
   }
 
   return StateTransition::stay(StateId::CalibreSync);
@@ -188,6 +197,9 @@ void CalibreSyncState::handleInput(Core& /* core */, Button button) {
     case Button::Center:
       if (calibreView_.status == ui::CalibreView::Status::Complete) {
         goBack_ = true;
+      } else if (calibreView_.showRestartOption) {
+        // Restart connection without shutting down WiFi
+        restartConn_ = true;
       }
       break;
 
@@ -207,6 +219,20 @@ void CalibreSyncState::cleanup() {
     calibre_deinit();
     libraryInitialized_ = false;
   }
+}
+
+void CalibreSyncState::restartConnection(Core& core) {
+  Serial.println("[CAL-STATE] Restarting Calibre connection (WiFi kept active)");
+
+  // Clean up only Calibre resources, keep WiFi active
+  cleanup();
+
+  // Reset state
+  syncComplete_ = false;
+  booksReceived_ = 0;
+
+  // Re-initialize Calibre connection
+  initializeCalibre(core);
 }
 
 // Static callbacks - bridge C library to C++ class
@@ -233,9 +259,10 @@ void CalibreSyncState::onBook(void* ctx, const calibre_book_meta_t* meta, const 
   Serial.printf("[CAL-STATE] Book received: \"%s\" -> %s\n", meta->title ? meta->title : "(null)",
                 path ? path : "(null)");
 
-  // Update view with book title (fallback if title is empty)
-  const char* title = (meta->title && meta->title[0]) ? meta->title : "Unknown";
-  self->calibreView_.setReceiving(title, 0, 0);
+  // Show "received N books" status instead of stuck progress bar
+  snprintf(self->calibreView_.statusMsg, ui::CalibreView::MAX_STATUS_LEN, "Received %d book(s)", self->booksReceived_);
+  self->calibreView_.status = ui::CalibreView::Status::Connecting;  // Use Connecting (no progress bar)
+  self->calibreView_.needsRender = true;
   self->needsRender_ = true;
 }
 
@@ -244,6 +271,41 @@ void CalibreSyncState::onMessage(void* ctx, const char* message) {
   if (!self || !message) return;
 
   Serial.printf("[CAL-STATE] Calibre message: %s\n", message);
+}
+
+bool CalibreSyncState::onDelete(void* ctx, const char* lpath) {
+  (void)ctx; /* Unused - delete doesn't need instance state */
+  if (!lpath || lpath[0] == '\0') return false;
+
+  /* Security: Reject path traversal and suspicious patterns BEFORE building path */
+  if (strstr(lpath, "..") != nullptr) {
+    Serial.printf("[CAL-STATE] Rejected path with '..': %s\n", lpath);
+    return false;
+  }
+  if (strchr(lpath, '~') != nullptr) {
+    Serial.printf("[CAL-STATE] Rejected path with '~': %s\n", lpath);
+    return false;
+  }
+  if (lpath[0] == '/') {
+    Serial.printf("[CAL-STATE] Rejected absolute path: %s\n", lpath);
+    return false;
+  }
+  /* Build full path */
+  char full_path[256];
+  int written = snprintf(full_path, sizeof(full_path), "%s/%s", CALIBRE_BOOKS_DIR, lpath);
+  if (written < 0 || (size_t)written >= sizeof(full_path)) {
+    Serial.printf("[CAL-STATE] Path too long: %s\n", lpath);
+    return false;
+  }
+
+  /* Delete the file */
+  if (unlink(full_path) == 0) {
+    Serial.printf("[CAL-STATE] Deleted book: %s\n", full_path);
+    return true;
+  } else {
+    Serial.printf("[CAL-STATE] Failed to delete book: %s (errno=%d)\n", full_path, errno);
+    return false;
+  }
 }
 
 }  // namespace papyrix

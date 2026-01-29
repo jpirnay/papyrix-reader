@@ -55,6 +55,9 @@ extern "C" {
 #define CALIBRE_BROADCAST_PORTS {54982, 48123, 39001, 44044, 59678}
 #define CALIBRE_BROADCAST_PORT_COUNT 5
 
+/** Maximum discovery broadcast attempts (500ms interval = 10 seconds total) */
+#define CALIBRE_MAX_DISCOVERY_BROADCASTS 20
+
 /** Connection timeout in milliseconds */
 #define CALIBRE_CONNECT_TIMEOUT_MS 10000
 
@@ -87,25 +90,30 @@ typedef enum {
 } calibre_err_t;
 
 /* ============================================================================
- * Protocol Opcodes
+ * Protocol Opcodes - Must match Calibre's smart_device_app/driver.py
  * ============================================================================ */
 
 typedef enum {
-  CALIBRE_OP_NOOP = 0,
-  CALIBRE_OP_OK,
-  CALIBRE_OP_ERROR,
-  CALIBRE_OP_GET_INIT_INFO,
-  CALIBRE_OP_GET_DEVICE_INFO,
-  CALIBRE_OP_SET_LIBRARY_INFO,
-  CALIBRE_OP_FREE_SPACE,
-  CALIBRE_OP_GET_BOOK_COUNT,
-  CALIBRE_OP_SEND_BOOKLISTS,
-  CALIBRE_OP_SEND_BOOK,
-  CALIBRE_OP_DELETE_BOOK,
-  CALIBRE_OP_GET_BOOK_FILE_SEGMENT,
-  CALIBRE_OP_DISPLAY_MESSAGE,
-  CALIBRE_OP_TOTAL_SPACE,
-  CALIBRE_OP_SET_PLUGBOARD,
+  CALIBRE_OP_OK = 0,
+  CALIBRE_OP_SET_CALIBRE_DEVICE_INFO = 1,
+  CALIBRE_OP_SET_CALIBRE_DEVICE_NAME = 2,
+  CALIBRE_OP_GET_DEVICE_INFORMATION = 3,
+  CALIBRE_OP_TOTAL_SPACE = 4,
+  CALIBRE_OP_FREE_SPACE = 5,
+  CALIBRE_OP_GET_BOOK_COUNT = 6,
+  CALIBRE_OP_SEND_BOOKLISTS = 7,
+  CALIBRE_OP_SEND_BOOK = 8,
+  CALIBRE_OP_GET_INITIALIZATION_INFO = 9,
+  CALIBRE_OP_BOOK_DONE = 11,
+  CALIBRE_OP_NOOP = 12,
+  CALIBRE_OP_DELETE_BOOK = 13,
+  CALIBRE_OP_GET_BOOK_FILE_SEGMENT = 14,
+  CALIBRE_OP_GET_BOOK_METADATA = 15,
+  CALIBRE_OP_SEND_BOOK_METADATA = 16,
+  CALIBRE_OP_DISPLAY_MESSAGE = 17,
+  CALIBRE_OP_CALIBRE_BUSY = 18,
+  CALIBRE_OP_SET_LIBRARY_INFO = 19,
+  CALIBRE_OP_ERROR = 20,
 } calibre_opcode_t;
 
 /* ============================================================================
@@ -181,13 +189,22 @@ typedef void (*calibre_book_received_cb_t)(void* ctx, const calibre_book_meta_t*
 typedef void (*calibre_message_cb_t)(void* ctx, const char* message);
 
 /**
+ * @brief Book deleted callback type
+ * @param ctx User context pointer
+ * @param lpath Logical path of the deleted book
+ * @return true if book was deleted successfully, false otherwise
+ */
+typedef bool (*calibre_book_deleted_cb_t)(void* ctx, const char* lpath);
+
+/**
  * @brief Callbacks structure
  */
 typedef struct {
-  calibre_progress_cb_t on_progress;  /**< Transfer progress callback */
-  calibre_book_received_cb_t on_book; /**< Book received callback */
-  calibre_message_cb_t on_message;    /**< Message callback */
-  void* user_ctx;                     /**< User context for callbacks */
+  calibre_progress_cb_t on_progress;   /**< Transfer progress callback */
+  calibre_book_received_cb_t on_book;  /**< Book received callback */
+  calibre_message_cb_t on_message;     /**< Message callback */
+  calibre_book_deleted_cb_t on_delete; /**< Book deleted callback */
+  void* user_ctx;                      /**< User context for callbacks */
 } calibre_callbacks_t;
 
 /* ============================================================================
@@ -253,6 +270,17 @@ void calibre_stop_discovery(calibre_conn_t* conn);
  * @return CALIBRE_OK on success, error code otherwise
  */
 calibre_err_t calibre_connect(calibre_conn_t* conn, const char* host, uint16_t port);
+
+/**
+ * @brief Connect to discovered Calibre server
+ *
+ * After discovery has found Calibre, this connects to it.
+ * Call this after calibre_start_discovery() has detected Calibre.
+ *
+ * @param conn Connection handle
+ * @return CALIBRE_OK on success, error code otherwise
+ */
+calibre_err_t calibre_connect_to_discovered(calibre_conn_t* conn);
 
 /**
  * @brief Disconnect from Calibre server

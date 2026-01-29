@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include "calibre_common.h"
 #include "calibre_wireless.h"
 
 /* ============================================================================
@@ -73,10 +74,20 @@ struct calibre_conn {
 
   /* Network state */
   calibre_state_t state;
-  int tcp_socket;
+  int tcp_socket;        /**< Connected client socket */
+  int tcp_listen_socket; /**< TCP server listening socket (legacy) */
   int udp_sockets[CALIBRE_BROADCAST_PORT_COUNT];
   uint16_t listen_port;
   struct sockaddr_in server_addr;
+
+  /* Calibre server info (for client mode) */
+  struct sockaddr_in calibre_addr; /**< Calibre server address */
+  uint16_t calibre_port;           /**< Calibre server port */
+  uint32_t calibre_discovered : 1; /**< Calibre was discovered via UDP */
+
+  /* Discovery state */
+  uint8_t discovery_broadcast_count; /**< Number of broadcasts sent */
+  uint32_t discovery_last_broadcast; /**< Last broadcast timestamp (ms) */
 
   /* Protocol state */
   uint32_t msg_id;       /**< Message ID counter */
@@ -138,15 +149,14 @@ bool json_find_bool(json_parser_t* p, const char* key, bool* out);
  * ============================================================================ */
 
 /**
- * @brief Send a JSON message with length prefix
+ * @brief Send a JSON message with length prefix (uses integer opcode)
  */
-calibre_err_t calibre_send_msg(calibre_conn_t* conn, const char* opcode, const char* json_payload);
+calibre_err_t calibre_send_msg(calibre_conn_t* conn, int opcode, const char* json_payload);
 
 /**
- * @brief Receive and parse a JSON message
+ * @brief Receive and parse a JSON message (returns integer opcode)
  */
-calibre_err_t calibre_recv_msg(calibre_conn_t* conn, char* opcode_buf, size_t opcode_size, char** json_out,
-                               uint32_t timeout_ms);
+calibre_err_t calibre_recv_msg(calibre_conn_t* conn, int* opcode_out, char** json_out, uint32_t timeout_ms);
 
 /**
  * @brief Handle GET_INITIALIZATION_INFO request
@@ -179,9 +189,36 @@ calibre_err_t calibre_handle_booklists(calibre_conn_t* conn, const char* json);
 calibre_err_t calibre_handle_message(calibre_conn_t* conn, const char* json);
 
 /**
- * @brief Handle NOOP (keep-alive)
+ * @brief Handle DELETE_BOOK request
  */
-calibre_err_t calibre_handle_noop(calibre_conn_t* conn);
+calibre_err_t calibre_handle_delete_book(calibre_conn_t* conn, const char* json);
+
+/**
+ * @brief Handle NOOP (keep-alive)
+ * @note Only responds if json payload is empty; Calibre sends NOOP with
+ *       wait_for_response=False when payload contains data like {"count": N}
+ */
+calibre_err_t calibre_handle_noop(calibre_conn_t* conn, const char* json);
+
+/**
+ * @brief Handle GET_DEVICE_INFORMATION request
+ */
+calibre_err_t calibre_handle_device_info(calibre_conn_t* conn, const char* json);
+
+/**
+ * @brief Handle TOTAL_SPACE request
+ */
+calibre_err_t calibre_handle_total_space(calibre_conn_t* conn, const char* json);
+
+/**
+ * @brief Handle GET_BOOK_COUNT request
+ */
+calibre_err_t calibre_handle_book_count(calibre_conn_t* conn, const char* json);
+
+/**
+ * @brief Handle SEND_BOOK_METADATA request
+ */
+calibre_err_t calibre_handle_book_metadata(calibre_conn_t* conn, const char* json);
 
 /* ============================================================================
  * Internal Buffer Functions

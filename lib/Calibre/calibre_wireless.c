@@ -17,42 +17,22 @@
 
 #include "calibre_internal.h"
 
-/* ESP-IDF specific includes - adjust for your platform */
 #ifdef ESP_PLATFORM
-#include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
 #include "mbedtls/sha256.h"
-#define LOG_TAG "calibre"
-#define LOGI(...) ESP_LOGI(LOG_TAG, __VA_ARGS__)
-#define LOGW(...) ESP_LOGW(LOG_TAG, __VA_ARGS__)
-#define LOGE(...) ESP_LOGE(LOG_TAG, __VA_ARGS__)
-#define LOGD(...) ESP_LOGD(LOG_TAG, __VA_ARGS__)
 #else
-/* Fallback for non-ESP platforms (testing) */
 #include <time.h>
-#define LOGI(...)             \
-  printf("[I] " __VA_ARGS__); \
-  printf("\n")
-#define LOGW(...)             \
-  printf("[W] " __VA_ARGS__); \
-  printf("\n")
-#define LOGE(...)             \
-  printf("[E] " __VA_ARGS__); \
-  printf("\n")
-#define LOGD(...)             \
-  printf("[D] " __VA_ARGS__); \
-  printf("\n")
 #endif
+
+/* Log tag for this module */
+#define TAG CAL_LOG_TAG_CORE
 
 /* ============================================================================
  * Static Variables
  * ============================================================================ */
 
 static bool s_initialized = false;
-
-/* Broadcast ports for discovery */
-static const uint16_t s_broadcast_ports[CALIBRE_BROADCAST_PORT_COUNT] = CALIBRE_BROADCAST_PORTS;
 
 /* ============================================================================
  * Error Handling
@@ -220,17 +200,6 @@ void json_parser_init(json_parser_t* p, const char* json, size_t len) {
   p->pos = 0;
 }
 
-static void json_skip_whitespace(json_parser_t* p) {
-  while (p->pos < p->len) {
-    char c = p->json[p->pos];
-    if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-      p->pos++;
-    } else {
-      break;
-    }
-  }
-}
-
 const char* json_find_string(json_parser_t* p, const char* key, size_t* out_len) {
   size_t key_len = strlen(key);
   const char* ptr = p->json;
@@ -369,14 +338,14 @@ calibre_err_t calibre_init(void) {
   srand((unsigned int)time(NULL));
 #endif
 
-  LOGI("Calibre wireless library initialized");
+  CAL_LOGI(TAG, "Calibre wireless library initialized");
   s_initialized = true;
   return CALIBRE_OK;
 }
 
 void calibre_deinit(void) {
   s_initialized = false;
-  LOGI("Calibre wireless library deinitialized");
+  CAL_LOGI(TAG, "Calibre wireless library deinitialized");
 }
 
 /* ============================================================================
@@ -385,13 +354,13 @@ void calibre_deinit(void) {
 
 calibre_conn_t* calibre_conn_create(const calibre_device_config_t* config, const calibre_callbacks_t* callbacks) {
   if (!s_initialized) {
-    LOGE("Library not initialized");
+    CAL_LOGE(TAG, "Library not initialized");
     return NULL;
   }
 
   calibre_conn_t* conn = (calibre_conn_t*)calloc(1, sizeof(calibre_conn_t));
   if (!conn) {
-    LOGE("Failed to allocate connection");
+    CAL_LOGE(TAG, "Failed to allocate connection");
     return NULL;
   }
 
@@ -409,16 +378,17 @@ calibre_conn_t* calibre_conn_create(const calibre_device_config_t* config, const
 
   /* Initialize sockets to invalid */
   conn->tcp_socket = -1;
+  conn->tcp_listen_socket = -1;
   for (int i = 0; i < CALIBRE_BROADCAST_PORT_COUNT; i++) {
     conn->udp_sockets[i] = -1;
   }
 
   /* Default books directory */
-  calibre_strlcpy(conn->books_dir, "/sdcard/books", sizeof(conn->books_dir));
+  calibre_strlcpy(conn->books_dir, "/Calibre", sizeof(conn->books_dir));
 
   /* Initialize receive buffer */
   if (calibre_buf_init(&conn->recv_buf, CALIBRE_JSON_BUF_SIZE) != CALIBRE_OK) {
-    LOGE("Failed to allocate receive buffer");
+    CAL_LOGE(TAG, "Failed to allocate receive buffer");
     free(conn);
     return NULL;
   }
@@ -426,7 +396,7 @@ calibre_conn_t* calibre_conn_create(const calibre_device_config_t* config, const
   conn->state = CALIBRE_STATE_IDLE;
   conn->listen_port = CALIBRE_DEFAULT_PORT;
 
-  LOGI("Connection created for device: %s", conn->config.device_name);
+  CAL_LOGI(TAG, "Connection created for device: %s", conn->config.device_name);
   return conn;
 }
 
@@ -436,6 +406,12 @@ void calibre_conn_destroy(calibre_conn_t* conn) {
   /* Disconnect if connected */
   calibre_disconnect(conn);
   calibre_stop_discovery(conn);
+
+  /* Close listen socket if open */
+  if (conn->tcp_listen_socket >= 0) {
+    close(conn->tcp_listen_socket);
+    conn->tcp_listen_socket = -1;
+  }
 
   /* Free receive buffer */
   calibre_buf_free(&conn->recv_buf);
@@ -449,7 +425,7 @@ void calibre_conn_destroy(calibre_conn_t* conn) {
   }
 
   free(conn);
-  LOGI("Connection destroyed");
+  CAL_LOGI(TAG, "Connection destroyed");
 }
 
 /* ============================================================================

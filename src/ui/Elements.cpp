@@ -64,6 +64,11 @@ void buttonBar(const GfxRenderer& r, const Theme& t, const char* b1, const char*
   r.drawButtonHints(t.uiFontId, b1, b2, b3, b4, t.primaryTextBlack);
 }
 
+void buttonBar(const GfxRenderer& r, const Theme& t, const ButtonBar& buttons) {
+  r.drawButtonHints(t.uiFontId, buttons.labels[0], buttons.labels[1], buttons.labels[2], buttons.labels[3],
+                    t.primaryTextBlack);
+}
+
 void progress(const GfxRenderer& r, const Theme& t, int y, int current, int total) {
   const int x = t.screenMarginSide + 20;
   const int w = r.getScreenWidth() - 2 * (t.screenMarginSide + 20);

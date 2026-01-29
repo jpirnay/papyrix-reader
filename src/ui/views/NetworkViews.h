@@ -19,6 +19,7 @@ struct NetworkModeView {
   static constexpr const char* const ITEMS[] = {"Join Network", "Create Hotspot"};
   static constexpr int ITEM_COUNT = 2;
 
+  ButtonBar buttons{"Back", "Select", "", ""};
   int8_t selected = 0;
   bool needsRender = true;
 
@@ -54,6 +55,7 @@ struct WifiListView {
     bool secured;
   };
 
+  ButtonBar buttons{"Back", "Connect", "Scan", ""};
   Network networks[MAX_NETWORKS];
   uint8_t networkCount = 0;
   uint8_t selected = 0;
@@ -125,6 +127,7 @@ struct WifiConnectingView {
 
   enum class Status : uint8_t { Connecting, Connected, Failed, GettingIP };
 
+  ButtonBar buttons{"Cancel", "", "", ""};
   char ssid[SSID_MAX_LEN] = {0};
   char statusMsg[MAX_STATUS_LEN] = "Connecting...";
   char ipAddress[16] = {0};
@@ -140,12 +143,14 @@ struct WifiConnectingView {
   void setConnecting() {
     status = Status::Connecting;
     strncpy(statusMsg, "Connecting...", MAX_STATUS_LEN);
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
   void setGettingIP() {
     status = Status::GettingIP;
     strncpy(statusMsg, "Getting IP address...", MAX_STATUS_LEN);
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
@@ -154,6 +159,7 @@ struct WifiConnectingView {
     strncpy(statusMsg, "Connected!", MAX_STATUS_LEN);
     strncpy(ipAddress, ip, sizeof(ipAddress) - 1);
     ipAddress[sizeof(ipAddress) - 1] = '\0';
+    buttons = ButtonBar{"Back", "Done", "", ""};
     needsRender = true;
   }
 
@@ -161,6 +167,7 @@ struct WifiConnectingView {
     status = Status::Failed;
     strncpy(statusMsg, reason, MAX_STATUS_LEN - 1);
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
+    buttons = ButtonBar{"Back", "Retry", "", ""};
     needsRender = true;
   }
 };
@@ -175,6 +182,7 @@ struct WebServerView {
   static constexpr int SSID_MAX_LEN = 33;
   static constexpr int MAX_IP_LEN = 16;
 
+  ButtonBar buttons{"Stop", "", "", ""};
   char ssid[SSID_MAX_LEN] = {0};
   char ipAddress[MAX_IP_LEN] = {0};
   uint8_t clientCount = 0;

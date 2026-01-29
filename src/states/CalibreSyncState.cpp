@@ -187,19 +187,22 @@ void CalibreSyncState::handleInput(Core& /* core */, Button button) {
   switch (button) {
     case Button::Left:
     case Button::Back:
-      if (calibreView_.status == ui::CalibreView::Status::Complete ||
-          calibreView_.status == ui::CalibreView::Status::Error ||
-          calibreView_.status == ui::CalibreView::Status::Waiting) {
-        goBack_ = true;
+      if (calibreView_.buttons.isActive(0)) {
+        if (calibreView_.status == ui::CalibreView::Status::Complete ||
+            calibreView_.status == ui::CalibreView::Status::Error ||
+            calibreView_.status == ui::CalibreView::Status::Waiting) {
+          goBack_ = true;
+        }
       }
       break;
 
     case Button::Center:
-      if (calibreView_.status == ui::CalibreView::Status::Complete) {
-        goBack_ = true;
-      } else if (calibreView_.showRestartOption) {
-        // Restart connection without shutting down WiFi
-        restartConn_ = true;
+      if (calibreView_.buttons.isActive(1)) {
+        if (calibreView_.status == ui::CalibreView::Status::Complete) {
+          goBack_ = true;
+        } else if (calibreView_.showRestartOption) {
+          restartConn_ = true;
+        }
       }
       break;
 

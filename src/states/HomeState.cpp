@@ -127,7 +127,7 @@ StateTransition HomeState::update(Core& core) {
         switch (e.button) {
           case Button::Back:
             // btn1: Read - Continue reading if book is open
-            if (view_.hasBook) {
+            if (view_.buttons.isActive(0) && view_.hasBook) {
               showTransitionNotification("Opening book...");
               saveTransition(BootMode::READER, core.buf.path, ReturnTo::HOME);
               vTaskDelay(50 / portTICK_PERIOD_MS);

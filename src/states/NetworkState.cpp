@@ -195,20 +195,22 @@ void NetworkState::handleModeSelect(Core& core, Button button) {
       break;
 
     case Button::Center:
-      if (modeView_.selected == 0) {
-        // Join Network - start WiFi scan
-        startWifiScan(core);
-        currentScreen_ = NetworkScreen::WifiList;
-        needsRender_ = true;
-      } else {
-        // Create Hotspot
-        startHotspot(core);
+      if (modeView_.buttons.isActive(1)) {
+        if (modeView_.selected == 0) {
+          startWifiScan(core);
+          currentScreen_ = NetworkScreen::WifiList;
+          needsRender_ = true;
+        } else {
+          startHotspot(core);
+        }
       }
       break;
 
     case Button::Left:
     case Button::Back:
-      goBack_ = true;
+      if (modeView_.buttons.isActive(0)) {
+        goBack_ = true;
+      }
       break;
 
     default:
@@ -229,20 +231,16 @@ void NetworkState::handleWifiList(Core& core, Button button) {
       break;
 
     case Button::Center:
-      if (wifiListView_.networkCount > 0 && !wifiListView_.scanning &&
+      if (wifiListView_.buttons.isActive(1) && wifiListView_.networkCount > 0 && !wifiListView_.scanning &&
           wifiListView_.selected < wifiListView_.networkCount) {
-        // Select this network
         strncpy(selectedSSID_, wifiListView_.networks[wifiListView_.selected].ssid, sizeof(selectedSSID_) - 1);
         selectedSSID_[sizeof(selectedSSID_) - 1] = '\0';
 
-        // Check if we have saved credentials
         const auto* cred = WIFI_STORE.findCredential(selectedSSID_);
         if (cred) {
-          // Try to connect with saved password
           passwordJustEntered_ = false;
           connectToNetwork(core, cred->ssid, cred->password);
         } else if (wifiListView_.networks[wifiListView_.selected].secured) {
-          // Need password - show keyboard
           keyboardView_.setTitle("Enter Password");
           keyboardView_.setPassword(false);
           keyboardView_.clear();
@@ -250,7 +248,6 @@ void NetworkState::handleWifiList(Core& core, Button button) {
           currentScreen_ = NetworkScreen::PasswordEntry;
           needsRender_ = true;
         } else {
-          // Open network - connect directly
           passwordJustEntered_ = false;
           connectToNetwork(core, selectedSSID_, "");
         }
@@ -258,17 +255,20 @@ void NetworkState::handleWifiList(Core& core, Button button) {
       break;
 
     case Button::Right:
-      // Rescan
-      startWifiScan(core);
-      needsRender_ = true;
+      if (wifiListView_.buttons.isActive(2)) {
+        startWifiScan(core);
+        needsRender_ = true;
+      }
       break;
 
     case Button::Left:
     case Button::Back:
-      core.network.shutdown();
-      currentScreen_ = NetworkScreen::ModeSelect;
-      modeView_.needsRender = true;
-      needsRender_ = true;
+      if (wifiListView_.buttons.isActive(0)) {
+        core.network.shutdown();
+        currentScreen_ = NetworkScreen::ModeSelect;
+        modeView_.needsRender = true;
+        needsRender_ = true;
+      }
       break;
 
     default:
@@ -308,9 +308,11 @@ void NetworkState::handlePasswordEntry(Core& core, Button button) {
       break;
 
     case Button::Back:
-      currentScreen_ = NetworkScreen::WifiList;
-      wifiListView_.needsRender = true;
-      needsRender_ = true;
+      if (keyboardView_.buttons.isActive(0)) {
+        currentScreen_ = NetworkScreen::WifiList;
+        wifiListView_.needsRender = true;
+        needsRender_ = true;
+      }
       break;
 
     default:
@@ -320,44 +322,43 @@ void NetworkState::handlePasswordEntry(Core& core, Button button) {
 
 void NetworkState::handleConnecting(Core& core, Button button) {
   if (button == Button::Left || button == Button::Back) {
-    if (connectingView_.status == ui::WifiConnectingView::Status::Failed) {
-      currentScreen_ = NetworkScreen::WifiList;
-      wifiListView_.needsRender = true;
-      needsRender_ = true;
+    if (connectingView_.buttons.isActive(0)) {
+      if (connectingView_.status == ui::WifiConnectingView::Status::Failed ||
+          connectingView_.status == ui::WifiConnectingView::Status::Connected) {
+        currentScreen_ = NetworkScreen::WifiList;
+        wifiListView_.needsRender = true;
+        needsRender_ = true;
+      }
     }
   } else if (button == Button::Center) {
-    if (connectingView_.status == ui::WifiConnectingView::Status::Connected) {
-      // Check if we're connecting for Calibre sync
-      if (core.pendingSync == SyncMode::CalibreWireless) {
-        // Save credentials if needed before transitioning
-        if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
-          WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
+    if (connectingView_.buttons.isActive(1)) {
+      if (connectingView_.status == ui::WifiConnectingView::Status::Connected) {
+        if (core.pendingSync == SyncMode::CalibreWireless) {
+          if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
+            WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
+          }
+          memset(keyboardView_.input, 0, sizeof(keyboardView_.input));
+          keyboardView_.inputLen = 0;
+          goCalibreSync_ = true;
+          return;
         }
-        // Clear password from memory
-        memset(keyboardView_.input, 0, sizeof(keyboardView_.input));
-        keyboardView_.inputLen = 0;
-        goCalibreSync_ = true;
-        return;
-      }
 
-      // Ask to save credentials if this was a new password
-      if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
-        confirmView_.setTitle("Save Password?");
-        confirmView_.setMessage("Save password for this network?");
-        confirmView_.selectYes();
-        confirmView_.needsRender = true;
-        currentScreen_ = NetworkScreen::SavePrompt;
+        if (!WIFI_STORE.hasSavedCredential(selectedSSID_) && passwordJustEntered_) {
+          confirmView_.setTitle("Save Password?");
+          confirmView_.setMessage("Save password for this network?");
+          confirmView_.selectYes();
+          confirmView_.needsRender = true;
+          currentScreen_ = NetworkScreen::SavePrompt;
+          needsRender_ = true;
+        } else {
+          startWebServer(core);
+        }
+      } else if (connectingView_.status == ui::WifiConnectingView::Status::Failed) {
+        keyboardView_.clear();
+        keyboardView_.needsRender = true;
+        currentScreen_ = NetworkScreen::PasswordEntry;
         needsRender_ = true;
-      } else {
-        // Start web server
-        startWebServer(core);
       }
-    } else if (connectingView_.status == ui::WifiConnectingView::Status::Failed) {
-      // Retry - go back to password entry
-      keyboardView_.clear();
-      keyboardView_.needsRender = true;
-      currentScreen_ = NetworkScreen::PasswordEntry;
-      needsRender_ = true;
     }
   }
 }
@@ -365,24 +366,32 @@ void NetworkState::handleConnecting(Core& core, Button button) {
 void NetworkState::handleSavePrompt(Core& core, Button button) {
   switch (button) {
     case Button::Left:
-      confirmView_.selectYes();
-      needsRender_ = true;
+      if (confirmView_.buttons.isActive(2)) {
+        confirmView_.selectYes();
+        needsRender_ = true;
+      }
       break;
 
     case Button::Right:
-      confirmView_.selectNo();
-      needsRender_ = true;
+      if (confirmView_.buttons.isActive(3)) {
+        confirmView_.selectNo();
+        needsRender_ = true;
+      }
       break;
 
     case Button::Center:
-      if (confirmView_.isYesSelected()) {
-        WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
+      if (confirmView_.buttons.isActive(1)) {
+        if (confirmView_.isYesSelected()) {
+          WIFI_STORE.addCredential(selectedSSID_, keyboardView_.input);
+        }
+        startWebServer(core);
       }
-      startWebServer(core);
       break;
 
     case Button::Back:
-      startWebServer(core);
+      if (confirmView_.buttons.isActive(0)) {
+        startWebServer(core);
+      }
       break;
 
     default:
@@ -392,8 +401,10 @@ void NetworkState::handleSavePrompt(Core& core, Button button) {
 
 void NetworkState::handleServerRunning(Core& core, Button button) {
   if (button == Button::Left || button == Button::Back) {
-    stopWebServer(core);
-    goBack_ = true;
+    if (serverView_.buttons.isActive(0)) {
+      stopWebServer(core);
+      goBack_ = true;
+    }
   }
 }
 

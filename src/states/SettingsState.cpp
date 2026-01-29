@@ -103,25 +103,39 @@ StateTransition SettingsState::update(Core& core) {
             break;
 
           case Button::Left:
-            if (currentScreen_ == SettingsScreen::Menu) {
-              core.settings.save(core.storage);
-              goHome_ = true;
-            } else if (currentScreen_ == SettingsScreen::Reader || currentScreen_ == SettingsScreen::Device) {
-              handleLeftRight(-1);
-            } else if (currentScreen_ == SettingsScreen::ConfirmDialog) {
-              // Cancel confirmation
-              pendingAction_ = 0;
-              currentScreen_ = SettingsScreen::Cleanup;
-              cleanupView_.needsRender = true;
-              needsRender_ = true;
-            } else {
-              goBack(core);
+            switch (currentScreen_) {
+              case SettingsScreen::Menu:
+                core.settings.save(core.storage);
+                goHome_ = true;
+                break;
+              case SettingsScreen::Reader:
+                if (readerView_.buttons.isActive(2)) handleLeftRight(-1);
+                break;
+              case SettingsScreen::Device:
+                if (deviceView_.buttons.isActive(2)) handleLeftRight(-1);
+                break;
+              case SettingsScreen::ConfirmDialog:
+                pendingAction_ = 0;
+                currentScreen_ = SettingsScreen::Cleanup;
+                cleanupView_.needsRender = true;
+                needsRender_ = true;
+                break;
+              default:
+                goBack(core);
+                break;
             }
             break;
 
           case Button::Right:
-            if (currentScreen_ == SettingsScreen::Reader || currentScreen_ == SettingsScreen::Device) {
-              handleLeftRight(+1);
+            switch (currentScreen_) {
+              case SettingsScreen::Reader:
+                if (readerView_.buttons.isActive(3)) handleLeftRight(+1);
+                break;
+              case SettingsScreen::Device:
+                if (deviceView_.buttons.isActive(3)) handleLeftRight(+1);
+                break;
+              default:
+                break;
             }
             break;
 

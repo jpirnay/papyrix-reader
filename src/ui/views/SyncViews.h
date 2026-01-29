@@ -5,12 +5,15 @@
 
 #include <cstdint>
 
+#include "../Elements.h"
+
 namespace ui {
 
 struct SyncMenuView {
   static constexpr const char* const ITEMS[] = {"File Transfer", "Net Library", "Calibre Wireless"};
   static constexpr int ITEM_COUNT = 3;
 
+  ButtonBar buttons{"Back", "Run", "", ""};
   int8_t selected = 0;
   bool needsRender = true;
 

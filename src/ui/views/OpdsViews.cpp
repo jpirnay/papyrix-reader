@@ -24,7 +24,7 @@ void render(const GfxRenderer& r, const Theme& t, const OpdsServerListView& v) {
     }
   }
 
-  buttonBar(r, t, "Back", "Open", "Add", "Delete");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -87,7 +87,7 @@ void render(const GfxRenderer& r, const Theme& t, const OpdsBrowserView& v) {
     }
   }
 
-  buttonBar(r, t, "Back", "Open", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -121,14 +121,7 @@ void render(const GfxRenderer& r, const Theme& t, const OpdsDownloadView& v) {
   // Status message
   centeredText(r, t, centerY + 140, v.statusMsg);
 
-  // Button hints
-  if (v.status == OpdsDownloadView::Status::Complete) {
-    buttonBar(r, t, "Back", "Open", "", "");
-  } else if (v.status == OpdsDownloadView::Status::Failed) {
-    buttonBar(r, t, "Back", "Retry", "", "");
-  } else {
-    buttonBar(r, t, "Cancel", "", "", "");
-  }
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

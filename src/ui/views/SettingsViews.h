@@ -18,6 +18,7 @@ struct SettingsMenuView {
   static constexpr const char* const ITEMS[] = {"Reader", "Device", "Cleanup", "System Info"};
   static constexpr int ITEM_COUNT = 4;
 
+  ButtonBar buttons{"Back", "Open", "", ""};
   int8_t selected = 0;
   bool needsRender = true;
 
@@ -42,6 +43,7 @@ struct CleanupMenuView {
   static constexpr const char* const ITEMS[] = {"Clear Book Cache", "Clear Device Storage", "Factory Reset"};
   static constexpr int ITEM_COUNT = 3;
 
+  ButtonBar buttons{"Back", "Run", "", ""};
   int8_t selected = 0;
   bool needsRender = true;
 
@@ -71,6 +73,7 @@ struct SystemInfoView {
   };
 
   static constexpr int MAX_FIELDS = 8;
+  ButtonBar buttons{"Back", "", "", ""};
   InfoField fields[MAX_FIELDS];
   uint8_t fieldCount = 0;
   bool needsRender = true;
@@ -119,6 +122,8 @@ struct ReaderSettingsView {
   static constexpr int SETTING_COUNT = 10;
   static constexpr int MAX_THEMES = 16;
   static const SettingDef DEFS[SETTING_COUNT];
+
+  ButtonBar buttons{"Back", "", "<", ">"};
 
   // Theme selection state (loaded from ThemeManager)
   char themeNames[MAX_THEMES][32] = {};
@@ -198,6 +203,7 @@ struct DeviceSettingsView {
   static constexpr int SETTING_COUNT = 5;
   static const SettingDef DEFS[SETTING_COUNT];
 
+  ButtonBar buttons{"Back", "", "<", ">"};
   uint8_t values[SETTING_COUNT] = {0};
   int8_t selected = 0;
   bool needsRender = true;
@@ -231,6 +237,7 @@ struct ConfirmDialogView {
   static constexpr int MAX_TITLE_LEN = 32;
   static constexpr int MAX_LINE_LEN = 48;
 
+  ButtonBar buttons{"Back", "Confirm", "", ""};
   char title[MAX_TITLE_LEN] = "Confirm?";
   char line1[MAX_LINE_LEN] = "";
   char line2[MAX_LINE_LEN] = "";

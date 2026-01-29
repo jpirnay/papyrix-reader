@@ -26,6 +26,7 @@ struct OpdsServerListView {
     char url[URL_LEN];
   };
 
+  ButtonBar buttons{"Back", "Open", "Add", "Delete"};
   Server servers[MAX_SERVERS];
   uint8_t serverCount = 0;
   uint8_t selected = 0;
@@ -108,6 +109,7 @@ struct OpdsBrowserView {
     EntryType type;
   };
 
+  ButtonBar buttons{"Back", "Open", "", ""};
   char currentTitle[TITLE_LEN] = "OPDS";
   Entry entries[MAX_ENTRIES];
   uint8_t entryCount = 0;
@@ -200,6 +202,7 @@ struct OpdsDownloadView {
 
   enum class Status : uint8_t { Downloading, Complete, Failed };
 
+  ButtonBar buttons{"Cancel", "", "", ""};
   char filename[MAX_FILENAME_LEN] = {0};
   char statusMsg[MAX_STATUS_LEN] = "Downloading...";
   Status status = Status::Downloading;
@@ -222,6 +225,7 @@ struct OpdsDownloadView {
   void setComplete() {
     status = Status::Complete;
     strncpy(statusMsg, "Download complete!", MAX_STATUS_LEN);
+    buttons = ButtonBar{"Back", "Open", "", ""};
     needsRender = true;
   }
 
@@ -229,6 +233,7 @@ struct OpdsDownloadView {
     status = Status::Failed;
     strncpy(statusMsg, reason, MAX_STATUS_LEN - 1);
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
+    buttons = ButtonBar{"Back", "Retry", "", ""};
     needsRender = true;
   }
 };

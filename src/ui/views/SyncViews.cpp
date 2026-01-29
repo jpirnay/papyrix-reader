@@ -17,7 +17,7 @@ void render(const GfxRenderer& r, const Theme& t, const SyncMenuView& v) {
     menuItem(r, t, y, SyncMenuView::ITEMS[i], i == v.selected);
   }
 
-  buttonBar(r, t, "Back", "Run", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

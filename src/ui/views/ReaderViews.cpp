@@ -119,7 +119,7 @@ void render(const GfxRenderer& r, const Theme& t, const JumpToPageView& v) {
   snprintf(rangeStr, sizeof(rangeStr), "of %d", v.maxPage);
   centeredText(r, t, centerY + 50, rangeStr);
 
-  buttonBar(r, t, "Cancel", "Go", "-10", "+10");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

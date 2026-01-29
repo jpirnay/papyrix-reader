@@ -17,6 +17,7 @@ namespace ui {
 struct MessageView {
   static constexpr int MAX_MSG_LEN = 128;
 
+  ButtonBar buttons{"", "", "", ""};
   char message[MAX_MSG_LEN] = {0};
   bool needsRender = true;
 
@@ -37,6 +38,7 @@ struct ConfirmView {
   static constexpr int MAX_TITLE_LEN = 48;
   static constexpr int MAX_MSG_LEN = 128;
 
+  ButtonBar buttons{"Back", "Select", "<", ">"};
   char title[MAX_TITLE_LEN] = "Confirm";
   char message[MAX_MSG_LEN] = {0};
   int8_t selected = 0;  // 0 = Yes, 1 = No
@@ -84,6 +86,7 @@ struct KeyboardView {
   static constexpr char CTRL_BACKSPACE = '\x02';
   static constexpr char CTRL_CONFIRM = '\x03';
 
+  ButtonBar buttons{"Back", "Select", "<", ">"};
   char title[MAX_TITLE_LEN] = "Enter Text";
   char input[MAX_INPUT_LEN] = {0};
   uint8_t inputLen = 0;

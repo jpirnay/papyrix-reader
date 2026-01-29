@@ -26,13 +26,7 @@ void render(const GfxRenderer& r, const Theme& t, const CalibreView& v) {
     centeredText(r, t, centerY + 100, sizeStr);
   }
 
-  if (v.status == CalibreView::Status::Complete || v.status == CalibreView::Status::Error) {
-    buttonBar(r, t, "Back", "Restart", "", "");
-  } else if (v.showRestartOption) {
-    buttonBar(r, t, "Back", "Restart", "", "");
-  } else {
-    buttonBar(r, t, "Cancel", "", "", "");
-  }
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

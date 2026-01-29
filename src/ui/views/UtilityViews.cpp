@@ -16,7 +16,7 @@ void render(const GfxRenderer& r, const Theme& t, const ConfirmView& v) {
 
   dialog(r, t, v.title, v.message, v.selected);
 
-  buttonBar(r, t, "Back", "Select", "<", ">");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -74,7 +74,7 @@ void render(const GfxRenderer& r, const Theme& t, const KeyboardView& v) {
   const int keyboardY = inputY + inputH + 20;
   keyboard(r, t, keyboardY, v.keyboard);
 
-  buttonBar(r, t, "Back", "Select", "<", ">");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

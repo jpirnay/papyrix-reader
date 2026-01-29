@@ -46,8 +46,10 @@ StateTransition SyncState::update(Core& core) {
             break;
 
           case Button::Center:
-            core.pendingSync = static_cast<SyncMode>(menuView_.selected + 1);
-            goNetwork_ = true;
+            if (menuView_.buttons.isActive(1)) {
+              core.pendingSync = static_cast<SyncMode>(menuView_.selected + 1);
+              goNetwork_ = true;
+            }
             break;
 
           case Button::Right:

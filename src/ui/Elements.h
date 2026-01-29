@@ -7,6 +7,16 @@
 
 namespace ui {
 
+// Button bar configuration - tracks which buttons are active
+struct ButtonBar {
+  const char* labels[4] = {"", "", "", ""};
+
+  constexpr ButtonBar(const char* b1 = "", const char* b2 = "", const char* b3 = "", const char* b4 = "")
+      : labels{b1 ? b1 : "", b2 ? b2 : "", b3 ? b3 : "", b4 ? b4 : ""} {}
+
+  bool isActive(int idx) const { return idx >= 0 && idx < 4 && labels[idx] && labels[idx][0] != '\0'; }
+};
+
 // Title - Centered bold heading
 void title(const GfxRenderer& r, const Theme& t, int y, const char* text);
 
@@ -21,6 +31,7 @@ void enumValue(const GfxRenderer& r, const Theme& t, int y, const char* label, c
 
 // Button bar - 4-button hints at bottom (wraps drawButtonHints)
 void buttonBar(const GfxRenderer& r, const Theme& t, const char* b1, const char* b2, const char* b3, const char* b4);
+void buttonBar(const GfxRenderer& r, const Theme& t, const ButtonBar& buttons);
 
 // Progress bar - Shows current/total progress
 void progress(const GfxRenderer& r, const Theme& t, int y, int current, int total);

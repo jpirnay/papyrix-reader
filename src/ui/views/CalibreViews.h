@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "../Elements.h"
+
 namespace ui {
 
 struct CalibreView {
@@ -15,6 +17,7 @@ struct CalibreView {
 
   enum class Status : uint8_t { Waiting, Connecting, Receiving, Complete, Error };
 
+  ButtonBar buttons{"Cancel", "", "", ""};
   char statusMsg[MAX_STATUS_LEN] = "Waiting for Calibre...";
   char helpText[MAX_HELP_LEN] = "";
   Status status = Status::Waiting;
@@ -29,6 +32,7 @@ struct CalibreView {
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
     helpText[0] = '\0';
     showRestartOption = false;
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
@@ -38,6 +42,7 @@ struct CalibreView {
     strncpy(helpText, "In Calibre: Connect/share > Wireless device", MAX_HELP_LEN - 1);
     helpText[MAX_HELP_LEN - 1] = '\0';
     showRestartOption = false;
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
@@ -47,6 +52,7 @@ struct CalibreView {
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
     helpText[0] = '\0';
     showRestartOption = false;
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
@@ -58,6 +64,7 @@ struct CalibreView {
     received = recv;
     total = tot;
     showRestartOption = false;
+    buttons = ButtonBar{"Cancel", "", "", ""};
     needsRender = true;
   }
 
@@ -66,6 +73,7 @@ struct CalibreView {
     snprintf(statusMsg, MAX_STATUS_LEN, "Received %d book(s)", bookCount);
     helpText[0] = '\0';
     showRestartOption = true;
+    buttons = ButtonBar{"Back", "Restart", "", ""};
     needsRender = true;
   }
 
@@ -75,6 +83,7 @@ struct CalibreView {
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
     helpText[0] = '\0';
     showRestartOption = true;
+    buttons = ButtonBar{"Back", "Restart", "", ""};
     needsRender = true;
   }
 
@@ -84,6 +93,7 @@ struct CalibreView {
     statusMsg[MAX_STATUS_LEN - 1] = '\0';
     helpText[0] = '\0';
     showRestartOption = true;
+    buttons = ButtonBar{"Back", "Restart", "", ""};
     needsRender = true;
   }
 };

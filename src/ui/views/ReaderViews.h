@@ -122,6 +122,7 @@ void render(const GfxRenderer& r, const Theme& t, const ReaderMenuView& v);
 // ============================================================================
 
 struct JumpToPageView {
+  ButtonBar buttons{"Cancel", "Go", "-10", "+10"};
   int16_t targetPage = 1;
   int16_t maxPage = 1;
   bool needsRender = true;

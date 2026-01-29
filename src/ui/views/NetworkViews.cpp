@@ -58,7 +58,7 @@ void render(const GfxRenderer& r, const Theme& t, const NetworkModeView& v) {
     centeredText(r, t, descY, "Create WiFi hotspot");
   }
 
-  buttonBar(r, t, "Back", "Select", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -86,7 +86,7 @@ void render(const GfxRenderer& r, const Theme& t, const WifiListView& v) {
     }
   }
 
-  buttonBar(r, t, "Back", "Connect", "Scan", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -111,14 +111,7 @@ void render(const GfxRenderer& r, const Theme& t, const WifiConnectingView& v) {
     centeredText(r, t, centerY + 80, ipLine);
   }
 
-  // Show appropriate button hints
-  if (v.status == WifiConnectingView::Status::Failed) {
-    buttonBar(r, t, "Back", "Retry", "", "");
-  } else if (v.status == WifiConnectingView::Status::Connected) {
-    buttonBar(r, t, "Back", "Done", "", "");
-  } else {
-    buttonBar(r, t, "Cancel", "", "", "");
-  }
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -165,7 +158,7 @@ void render(const GfxRenderer& r, const Theme& t, const WebServerView& v) {
     centeredText(r, t, 180, "Server stopped");
   }
 
-  buttonBar(r, t, "Stop", "", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

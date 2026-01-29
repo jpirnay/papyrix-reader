@@ -136,11 +136,7 @@ void render(const GfxRenderer& r, const Theme& t, const HomeView& v) {
   }
 
   // Button hints - direct shortcuts (no menu navigation)
-  if (v.hasBook) {
-    buttonBar(r, t, "Read", "Files", "Sync", "Settings");
-  } else {
-    buttonBar(r, t, "", "Files", "Sync", "Settings");
-  }
+  buttonBar(r, t, v.buttons);
 
   // Note: displayBuffer() is NOT called here; HomeState will call it
   // after rendering the cover image on top of the card area
@@ -176,7 +172,7 @@ void render(const GfxRenderer& r, const Theme& t, const FileListView& v) {
     centeredText(r, t, pageY, pageStr);
   }
 
-  buttonBar(r, t, "Back", "Open", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -199,7 +195,7 @@ void render(const GfxRenderer& r, const Theme& t, ChapterListView& v) {
     chapterItem(r, t, y, v.chapters[i].title, v.chapters[i].depth, i == v.selected, i == v.currentChapter);
   }
 
-  buttonBar(r, t, "Back", "Go", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

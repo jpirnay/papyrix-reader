@@ -41,6 +41,8 @@ struct HomeView {
   static constexpr int MAX_AUTHOR_LEN = 48;
   static constexpr int MAX_PATH_LEN = 128;
 
+  ButtonBar buttons{"", "Files", "Sync", "Settings"};
+
   // Current book info
   char bookTitle[MAX_TITLE_LEN] = {0};
   char bookAuthor[MAX_AUTHOR_LEN] = {0};
@@ -67,6 +69,7 @@ struct HomeView {
     strncpy(bookPath, path, MAX_PATH_LEN - 1);
     bookPath[MAX_PATH_LEN - 1] = '\0';
     hasBook = true;
+    buttons.labels[0] = "Read";
     needsRender = true;
   }
 
@@ -79,6 +82,7 @@ struct HomeView {
     coverWidth = 0;
     coverHeight = 0;
     hasCoverBmp = false;
+    buttons.labels[0] = "";
     needsRender = true;
   }
 
@@ -119,6 +123,8 @@ struct FileListView {
     char name[NAME_LEN];
     bool isDirectory;
   };
+
+  ButtonBar buttons{"Back", "Open", "", ""};
 
   // Path and file list
   char currentPath[PATH_LEN] = "/";
@@ -223,6 +229,7 @@ struct ChapterListView {
     uint8_t depth;  // Nesting level (0 = root)
   };
 
+  ButtonBar buttons{"Back", "Go", "", ""};
   Chapter chapters[MAX_CHAPTERS];
   uint8_t chapterCount = 0;
   uint8_t currentChapter = 0;  // The chapter user is currently reading

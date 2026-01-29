@@ -52,7 +52,7 @@ void render(const GfxRenderer& r, const Theme& t, const SettingsMenuView& v) {
     menuItem(r, t, y, SettingsMenuView::ITEMS[i], i == v.selected);
   }
 
-  buttonBar(r, t, "Back", "Open", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -68,7 +68,7 @@ void render(const GfxRenderer& r, const Theme& t, const CleanupMenuView& v) {
     menuItem(r, t, y, CleanupMenuView::ITEMS[i], i == v.selected);
   }
 
-  buttonBar(r, t, "Back", "Run", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -86,7 +86,7 @@ void render(const GfxRenderer& r, const Theme& t, const SystemInfoView& v) {
     twoColumnRow(r, t, y, v.fields[i].label, v.fields[i].value);
   }
 
-  buttonBar(r, t, "Back", "", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -108,7 +108,7 @@ void render(const GfxRenderer& r, const Theme& t, const ReaderSettingsView& v) {
     }
   }
 
-  buttonBar(r, t, "Back", "", "<", ">");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -124,7 +124,7 @@ void render(const GfxRenderer& r, const Theme& t, const DeviceSettingsView& v) {
     enumValue(r, t, y, DeviceSettingsView::DEFS[i].label, v.getCurrentValueStr(i), i == v.selected);
   }
 
-  buttonBar(r, t, "Back", "", "<", ">");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }
@@ -175,7 +175,7 @@ void render(const GfxRenderer& r, const Theme& t, const ConfirmDialogView& v) {
   }
 
   // Button hints
-  buttonBar(r, t, "Back", "Confirm", "", "");
+  buttonBar(r, t, v.buttons);
 
   r.displayBuffer();
 }

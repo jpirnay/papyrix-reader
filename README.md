@@ -16,7 +16,7 @@ Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
 
 Papyrix is a fork of [CrossPoint Reader](https://github.com/daveallie/crosspoint-reader), focused on creating a light, streamlined reading experience with improved UI defaults.
 
-![](./docs/images/device.jpg)
+![Home screen](./docs/images/device.jpg)
 
 ## Motivation
 

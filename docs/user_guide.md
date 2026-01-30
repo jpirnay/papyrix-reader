@@ -33,7 +33,18 @@ Upon turning the device on for the first time, you will be placed on the **Home*
 
 ### 3.1 Home Screen
 
-![Home Screen](images/home-screen.jpg)
+With cover:
+
+![Home Screen: With cover](images/device.jpg)
+
+Without cover:
+
+![Home Screen: Without Cover](images/home-no-cover.jpg)
+
+Empty:
+
+![Home Screen: Empty](images/home-screen.jpg)
+
 
 The Home Screen displays the app title "Papyrix Reader" at the top with a **battery indicator** in the top-right corner.
 
@@ -69,7 +80,13 @@ The Files screen acts as a folder and file browser.
 
 ### 3.3 Reading Screen
 
-![Reading View](images/reading-view.jpg)
+Test:
+
+![Reading View: Text](images/reading-text.jpg)
+
+Images:
+
+![Reading View: Image](images/reading-image.jpg)
 
 See [4. Reading Mode](#4-reading-mode) below for more information.
 

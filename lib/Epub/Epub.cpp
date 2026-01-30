@@ -571,7 +571,90 @@ bool Epub::generateCoverBmp(bool use1BitDithering) const {
     }
   }
 
-  // Priority 2: Internal EPUB cover
+  // Priority 1.5: Try common internal cover paths (faster than OPF parsing)
+  static const char* commonCoverPaths[] = {
+      // Root level
+      "cover.jpg",
+      "cover.jpeg",
+      "cover.png",
+      // images/ directory (lowercase - most common)
+      "images/cover.jpg",
+      "images/cover.jpeg",
+      "images/cover.png",
+      // Images/ directory (capitalized - common in Calibre)
+      "Images/cover.jpg",
+      "Images/cover.jpeg",
+      "Images/cover.png",
+      // OEBPS/ root
+      "OEBPS/cover.jpg",
+      "OEBPS/cover.jpeg",
+      "OEBPS/cover.png",
+      // OEBPS/images/
+      "OEBPS/images/cover.jpg",
+      "OEBPS/images/cover.jpeg",
+      "OEBPS/images/cover.png",
+      // OEBPS/Images/
+      "OEBPS/Images/cover.jpg",
+      "OEBPS/Images/cover.jpeg",
+      "OEBPS/Images/cover.png",
+      // OPS/ variants (older EPUB 2)
+      "OPS/cover.jpg",
+      "OPS/cover.jpeg",
+      "OPS/cover.png",
+      "OPS/images/cover.jpg",
+      "OPS/images/cover.jpeg",
+      "OPS/images/cover.png",
+      "OPS/Images/cover.jpg",
+      "OPS/Images/cover.jpeg",
+      "OPS/Images/cover.png",
+      // EPUB/ variants (EPUB 3)
+      "EPUB/cover.jpg",
+      "EPUB/cover.jpeg",
+      "EPUB/cover.png",
+      "EPUB/images/cover.jpg",
+      "EPUB/images/cover.jpeg",
+      "EPUB/images/cover.png",
+      // EPUB/Images/ (capitalized, for consistency with OEBPS/Images/)
+      "EPUB/Images/cover.jpg",
+      "EPUB/Images/cover.jpeg",
+      "EPUB/Images/cover.png",
+  };
+
+  // Use single ZipFile instance for efficiency
+  ZipFile zip(filepath);
+  for (const char* path : commonCoverPaths) {
+    size_t size = 0;
+    if (zip.getInflatedFileSize(path, &size) && size > 0) {
+      // Note: No file size check needed - converters have built-in limits:
+      // - JPEG: MAX_MCU_ROW_BYTES=64KB limits width to ~4K-8K pixels
+      // - PNG: MAX_IMAGE_WIDTH=2048, MAX_IMAGE_HEIGHT=3072
+      Serial.printf("[%lu] [EBP] Found cover via heuristic: %s\n", millis(), path);
+
+      const std::string ext = FsHelpers::isJpegFile(path) ? ".jpg" : ".png";
+      const auto coverTempPath = getCachePath() + "/.cover" + ext;
+
+      FsFile coverFile;
+      if (SdMan.openFileForWrite("EBP", coverTempPath, coverFile)) {
+        if (readItemContentsToStream(path, coverFile, 1024)) {
+          coverFile.close();
+          ImageConvertConfig config;
+          config.oneBit = use1BitDithering;
+          config.logTag = "EBP";
+          if (ImageConverterFactory::convertToBmp(coverTempPath, coverPath, config)) {
+            SdMan.remove(coverTempPath.c_str());
+            return true;
+          }
+          // Conversion failed - clean up partial output
+          SdMan.remove(coverPath.c_str());
+        } else {
+          coverFile.close();
+        }
+      }
+      SdMan.remove(coverTempPath.c_str());
+    }
+  }
+
+  // Priority 2: Internal EPUB cover via OPF metadata
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     Serial.printf("[%lu] [EBP] Cannot generate cover BMP, cache not loaded\n", millis());
     return false;

@@ -825,9 +825,7 @@ void ReaderState::startBackgroundCaching(Core& core) {
   xTaskCreate(&ReaderState::cacheTaskTrampoline, "PageCache", 8192, this, 0, &cacheTaskHandle_);
 }
 
-void ReaderState::cacheTaskTrampoline(void* param) {
-  static_cast<ReaderState*>(param)->cacheTaskLoop();
-}
+void ReaderState::cacheTaskTrampoline(void* param) { static_cast<ReaderState*>(param)->cacheTaskLoop(); }
 
 void ReaderState::cacheTaskLoop() {
   const Theme& theme = THEME_MANAGER.current();

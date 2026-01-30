@@ -186,7 +186,7 @@ typedef void (*calibre_book_received_cb_t)(void* ctx, const calibre_book_meta_t*
  * @param ctx User context pointer
  * @param message Message text from Calibre
  */
-typedef void (*calibre_message_cb_t)(void* ctx, const char* message);
+typedef void (*calibre_message_cb_t)(const void* ctx, const char* message);
 
 /**
  * @brief Book deleted callback type

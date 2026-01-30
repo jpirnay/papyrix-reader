@@ -69,7 +69,7 @@ bool ZipFile::loadAllFileStatSlims() {
     file.read(&fileStat.localHeaderOffset, 4);
 
     // Bounds check to prevent buffer overflow
-    if (nameLen > 255) {
+    if (nameLen >= 255) {
       file.seekCur(nameLen + m + k);  // Skip this entry entirely
       continue;
     }
@@ -134,7 +134,7 @@ bool ZipFile::loadFileStatSlim(const char* filename, FileStatSlim* fileStat) {
     file.read(&fileStat->localHeaderOffset, 4);
 
     // Bounds check to prevent buffer overflow
-    if (nameLen > 255) {
+    if (nameLen >= 255) {
       file.seekCur(nameLen + m + k);  // Skip this entry entirely
       continue;
     }
@@ -330,7 +330,7 @@ int ZipFile::fillUncompressedSizes(std::vector<SizeTarget>& targets, std::vector
     file.seekCur(12);
 
     // Bounds check to prevent buffer overflow
-    if (nameLen > 255) {
+    if (nameLen >= 255) {
       file.seekCur(nameLen + m + k);  // Skip this entry entirely
       continue;
     }

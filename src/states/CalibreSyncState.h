@@ -40,7 +40,7 @@ class CalibreSyncState : public State {
   // Callbacks - static to bridge C library to C++ class
   static bool onProgress(void* ctx, uint64_t current, uint64_t total);
   static void onBook(void* ctx, const calibre_book_meta_t* meta, const char* path);
-  static void onMessage(void* ctx, const char* message);
+  static void onMessage(const void* ctx, const char* message);
   static bool onDelete(void* ctx, const char* lpath);
 
   // Handle button input

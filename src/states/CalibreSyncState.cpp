@@ -269,7 +269,7 @@ void CalibreSyncState::onBook(void* ctx, const calibre_book_meta_t* meta, const 
   self->needsRender_ = true;
 }
 
-void CalibreSyncState::onMessage(void* ctx, const char* message) {
+void CalibreSyncState::onMessage(const void* ctx, const char* message) {
   const auto* self = static_cast<const CalibreSyncState*>(ctx);
   if (!self || !message) return;
 

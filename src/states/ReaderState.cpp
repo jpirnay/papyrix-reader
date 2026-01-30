@@ -247,6 +247,10 @@ void ReaderState::enter(Core& core) {
   lastRenderedSectionPage_ = currentSectionPage_;
 
   Serial.printf("[READER] Loaded: %s\n", core.content.metadata().title);
+
+  // Start background caching (includes thumbnail generation)
+  // This runs once per book open regardless of starting position
+  startBackgroundCaching(core);
 }
 
 void ReaderState::exit(Core& core) {
@@ -446,7 +450,6 @@ void ReaderState::renderCurrentPage(Core& core) {
     if (core.settings.showImages) {
       if (renderCoverPage(core)) {
         hasCover_ = true;
-        startBackgroundCaching(core);
         core.display.markDirty();
         return;
       }

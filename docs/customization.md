@@ -29,6 +29,13 @@ When you first use the device, default `light.theme` and `dark.theme` files are 
 4. Place it in `/config/themes/` on your SD card
 5. Restart the device and select your theme in **Settings > Reader > Theme**
 
+### Theme Limits
+
+- **Maximum themes**: 16 themes can be displayed in the Settings UI
+- **Theme name length**: Maximum 31 characters
+- Themes beyond the limit are ignored with a log warning (alphabetical order by filename)
+- If a theme file is invalid or fails to parse, the device skips it and logs a warning
+
 ### Theme File Format
 
 Theme files use a simple INI format:

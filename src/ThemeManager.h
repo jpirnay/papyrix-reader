@@ -6,6 +6,9 @@
 
 #include "Theme.h"
 
+/// Maximum number of themes that can be loaded/displayed
+constexpr int MAX_CACHED_THEMES = 16;
+
 /**
  * Singleton manager for theme loading and application.
  *

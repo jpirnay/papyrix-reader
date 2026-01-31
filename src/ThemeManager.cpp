@@ -254,14 +254,27 @@ std::vector<std::string> ThemeManager::listAvailableThemes(bool forceRefresh) {
 
         // Add if not already in list (avoid duplicating light/dark)
         if (!std::any_of(themes.begin(), themes.end(), [&](const std::string& t) { return t == themeNameBuf; })) {
+          // Only parse if not already cached
+          if (themeCache.find(themeNameBuf) == themeCache.end()) {
+            char path[128];
+            snprintf(path, sizeof(path), "%s/%s", CONFIG_THEMES_DIR, name);
+            Theme cachedTheme;
+            if (loadFromFileToTheme(path, cachedTheme)) {
+              themeCache[themeNameBuf] = cachedTheme;
+            } else {
+              Serial.printf("[THEME] Failed to load theme '%s', skipping\n", themeNameBuf);
+              entry.close();
+              continue;
+            }
+          }
+
           themes.push_back(themeNameBuf);
 
-          // Pre-cache theme configuration
-          char path[128];
-          snprintf(path, sizeof(path), "%s/%s", CONFIG_THEMES_DIR, name);
-          Theme cachedTheme;
-          if (loadFromFileToTheme(path, cachedTheme)) {
-            themeCache[themeNameBuf] = cachedTheme;
+          // Stop if we've reached the maximum theme limit
+          if (themes.size() >= MAX_CACHED_THEMES) {
+            Serial.printf("[THEME] Maximum theme limit (%d) reached, skipping remaining\n", MAX_CACHED_THEMES);
+            entry.close();
+            break;
           }
         }
       }

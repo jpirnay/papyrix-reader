@@ -1,5 +1,47 @@
 
 
+## v1.1.4 (2026-01-31)
+
+*  SettingsViews: Fix status bar enum value count from 3 to 2 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  EpdFont: Add size limits and memory validation for custom fonts [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ThemeManager: Add theme limit (16) and skip invalid themes [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  IniParser: Fix EOF handling with proper int return type [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.3 (2026-01-31)
+
+*  ReaderState: Use mutex timeout to prevent deadlock after force-deleted task [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ReaderState: Reset pageCache on creation failure and recreate mutex after force-delete [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.2 (2026-01-31)
+
+*  FileListState: Add pagination and persist directory position [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.1 (2026-01-30)
+
+*  FileListState: Add file/folder delete with confirmation dialog [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ContentHandle: Add getCoverPath method and move thumbnail generation to ReaderState [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix background caching start [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.0 (2026-01-30)
+
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update changelog [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix Settings menu freeze on first entry (#8) [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update documentation images with new device photos [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update documentation images with new device photos [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Refactor: Use unique_ptr for server, add explicit, extract epub locals [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update docs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update fonts samples and fonts converter [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix off-by-one in ZipFile nameLen bounds check [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add sunlight fading fix setting to prevent UV-induced screen fade on SSD1677 displays [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v1.0.0 (2026-01-29)
 
 *  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]

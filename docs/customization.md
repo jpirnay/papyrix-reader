@@ -400,13 +400,19 @@ External `.bin` fonts use ~52KB RAM for glyph caching regardless of character se
 
 ### Fallback Behavior
 
-If a custom font file is missing or corrupted:
+If a custom font file is missing, corrupted, or exceeds size limits:
 
 - The device automatically falls back to built-in fonts
-- Built-in fonts are always available:
-  - **Reader** - Reader font (3 sizes)
-  - **UI** - UI font
-  - **Small** - Small text
+- Console shows which font failed and why
+
+**Size limits:**
+- `.epdfont` files: max 512KB bitmap data
+- `.bin` external fonts: max 32MB file size, max 64x64 pixel glyphs
+
+Built-in fonts are always available:
+- **Reader** - Reader font (3 sizes)
+- **UI** - UI font
+- **Small** - Small text
 
 > **Note:** Custom font loading is optional. The device works perfectly with built-in fonts if no custom fonts are configured.
 

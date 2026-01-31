@@ -69,6 +69,15 @@ bool ExternalFont::parseFilename(const char* filepath) {
   }
   _charWidth = (uint8_t)w;
   _charHeight = (uint8_t)h;
+
+  // Validate dimensions
+  static constexpr uint8_t MAX_CHAR_DIM = 64;
+  if (_charWidth > MAX_CHAR_DIM || _charHeight > MAX_CHAR_DIM) {
+    Serial.printf("[EXT_FONT] Dimensions too large: %dx%d (max %d). Using default font.\n", _charWidth, _charHeight,
+                  MAX_CHAR_DIM);
+    return false;
+  }
+
   *lastUnderscore = '\0';
 
   // Find size
@@ -114,6 +123,15 @@ bool ExternalFont::load(const char* filepath) {
 
   if (!SdMan.openFileForRead("EXT_FONT", filepath, _fontFile)) {
     Serial.printf("[EXT_FONT] Failed to open: %s\n", filepath);
+    return false;
+  }
+
+  // Validate file size
+  static constexpr uint32_t MAX_FONT_FILE_SIZE = 32 * 1024 * 1024;  // 32MB max
+  uint32_t fileSize = _fontFile.size();
+  if (fileSize == 0 || fileSize > MAX_FONT_FILE_SIZE) {
+    Serial.printf("[EXT_FONT] Invalid file size: %u bytes (max 32MB). Using default font.\n", fileSize);
+    _fontFile.close();
     return false;
   }
 

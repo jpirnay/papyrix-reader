@@ -79,4 +79,10 @@ class EpdFontLoader {
     uint32_t glyphCount;
     uint32_t bitmapSize;
   } __attribute__((packed));
+
+  /**
+   * Validate font metrics and check memory availability.
+   * @return true if metrics are valid and memory is available
+   */
+  static bool validateMetricsAndMemory(const FileMetrics& metrics);
 };

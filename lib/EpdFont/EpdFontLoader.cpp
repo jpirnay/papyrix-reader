@@ -5,6 +5,27 @@
 
 #include <cstring>
 
+static constexpr uint32_t MAX_BITMAP_SIZE = 512 * 1024;  // 512KB
+
+bool EpdFontLoader::validateMetricsAndMemory(const FileMetrics& metrics) {
+  if (metrics.intervalCount > 10000 || metrics.glyphCount > 100000 || metrics.bitmapSize > MAX_BITMAP_SIZE) {
+    Serial.printf("[FONTLOAD] Font exceeds size limits (bitmap=%u, max=%u). Using default font.\n", metrics.bitmapSize,
+                  MAX_BITMAP_SIZE);
+    return false;
+  }
+
+  size_t requiredMemory = metrics.intervalCount * sizeof(EpdUnicodeInterval) + metrics.glyphCount * sizeof(EpdGlyph) +
+                          metrics.bitmapSize + sizeof(EpdFontData);
+  size_t availableHeap = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+  if (requiredMemory > availableHeap * 0.8) {
+    Serial.printf("[FONTLOAD] Insufficient memory: need %zu, available %zu. Using default font.\n", requiredMemory,
+                  availableHeap);
+    return false;
+  }
+
+  return true;
+}
+
 EpdFontLoader::LoadResult EpdFontLoader::loadFromFile(const char* path) {
   LoadResult result = {false, nullptr, nullptr, nullptr, nullptr};
 
@@ -48,9 +69,7 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromFile(const char* path) {
                 metrics.advanceY, metrics.ascender, metrics.descender, metrics.intervalCount, metrics.glyphCount,
                 metrics.bitmapSize);
 
-  // Validate sizes (sanity check for memory)
-  if (metrics.intervalCount > 10000 || metrics.glyphCount > 100000 || metrics.bitmapSize > 2000000) {
-    Serial.println("[FONTLOAD] Font data exceeds size limits");
+  if (!validateMetricsAndMemory(metrics)) {
     file.close();
     return result;
   }
@@ -174,9 +193,7 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromLittleFS(const char* path) {
                 metrics.advanceY, metrics.ascender, metrics.descender, metrics.intervalCount, metrics.glyphCount,
                 metrics.bitmapSize);
 
-  // Validate sizes (sanity check for memory)
-  if (metrics.intervalCount > 10000 || metrics.glyphCount > 100000 || metrics.bitmapSize > 2000000) {
-    Serial.println("[FONTLOAD] Font data exceeds size limits");
+  if (!validateMetricsAndMemory(metrics)) {
     file.close();
     return result;
   }

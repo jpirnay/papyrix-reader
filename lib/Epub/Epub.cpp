@@ -673,8 +673,6 @@ int Epub::getSpineItemsCount() const {
   return bookMetadataCache->getSpineCount();
 }
 
-size_t Epub::getCumulativeSpineItemSize(const int spineIndex) const { return getSpineItem(spineIndex).cumulativeSize; }
-
 BookMetadataCache::SpineEntry Epub::getSpineItem(const int spineIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     Serial.printf("[%lu] [EBP] getSpineItem called but cache not loaded\n", millis());
@@ -734,13 +732,6 @@ int Epub::getSpineIndexForTocIndex(const int tocIndex) const {
 
 int Epub::getTocIndexForSpineIndex(const int spineIndex) const { return getSpineItem(spineIndex).tocIndex; }
 
-size_t Epub::getBookSize() const {
-  if (!bookMetadataCache || !bookMetadataCache->isLoaded() || bookMetadataCache->getSpineCount() == 0) {
-    return 0;
-  }
-  return getCumulativeSpineItemSize(getSpineItemsCount() - 1);
-}
-
 int Epub::getSpineIndexForTextReference() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     Serial.printf("[%lu] [EBP] getSpineIndexForTextReference called but cache not loaded\n", millis());
@@ -768,16 +759,4 @@ int Epub::getSpineIndexForTextReference() const {
   // This should not happen, as we checked for empty textReferenceHref earlier
   Serial.printf("[%lu] [EBP] Section not found for text reference\n", millis());
   return 0;
-}
-
-// Calculate progress in book
-uint8_t Epub::calculateProgress(const int currentSpineIndex, const float currentSpineRead) const {
-  const size_t bookSize = getBookSize();
-  if (bookSize == 0) {
-    return 0;
-  }
-  const size_t prevChapterSize = (currentSpineIndex >= 1) ? getCumulativeSpineItemSize(currentSpineIndex - 1) : 0;
-  const size_t curChapterSize = getCumulativeSpineItemSize(currentSpineIndex) - prevChapterSize;
-  const size_t sectionProgSize = currentSpineRead * curChapterSize;
-  return round(static_cast<float>(prevChapterSize + sectionProgSize) / bookSize * 100.0);
 }

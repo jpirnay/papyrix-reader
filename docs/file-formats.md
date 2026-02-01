@@ -147,7 +147,6 @@ struct Metadata {
 
 struct SpineEntry {
     String href [[comment("Resource path")]];
-    u32 cumulativeSize [[comment("Cumulative size in bytes"), color("FF6B6B")]];
     s16 tocIndex [[comment("Index into TOC (-1 if none)"), color("4ECDC4")]];
 } [[comment("Spine entry defining reading order")]];
 

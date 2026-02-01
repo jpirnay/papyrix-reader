@@ -259,15 +259,31 @@ std::unique_ptr<Page> PageCache::loadPage(uint16_t pageNum) {
     return nullptr;
   }
 
+  const size_t fileSize = file_.size();
+
   // Read LUT offset from header
   file_.seek(HEADER_SIZE - 4);
   uint32_t lutOffset;
   serialization::readPod(file_, lutOffset);
 
+  // Validate LUT offset
+  if (lutOffset < HEADER_SIZE || lutOffset >= fileSize) {
+    Serial.printf("[CACHE] Invalid LUT offset: %u (file size: %zu)\n", lutOffset, fileSize);
+    file_.close();
+    return nullptr;
+  }
+
   // Read page position from LUT
-  file_.seek(lutOffset + sizeof(uint32_t) * pageNum);
+  file_.seek(lutOffset + static_cast<size_t>(pageNum) * sizeof(uint32_t));
   uint32_t pagePos;
   serialization::readPod(file_, pagePos);
+
+  // Validate page position
+  if (pagePos < HEADER_SIZE || pagePos >= fileSize) {
+    Serial.printf("[CACHE] Invalid page position: %u (file size: %zu)\n", pagePos, fileSize);
+    file_.close();
+    return nullptr;
+  }
 
   // Read page
   file_.seek(pagePos);

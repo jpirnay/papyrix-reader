@@ -55,6 +55,7 @@ class ReaderState : public State {
   uint32_t currentPage_;
   bool needsRender_;
   bool contentLoaded_;
+  bool loadFailed_ = false;  // Track if content loading failed (for error state transition)
 
   // Reading position (maps to ReaderNavigation::Position)
   int currentSpineIndex_;

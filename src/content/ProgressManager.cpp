@@ -75,21 +75,31 @@ ProgressManager::Progress ProgressManager::load(Core& core, const char* cacheDir
     return progress;
   }
 
-  uint8_t data[4];
+  // Validate file size before reading
+  if (file.size() < 4) {
+    Serial.println("[PROGRESS] Corrupted file (too small), using defaults");
+    file.close();
+    return progress;
+  }
 
-  if (file.read(data, 4) == 4) {
-    if (type == ContentType::Epub) {
-      progress.spineIndex = data[0] | (data[1] << 8);
-      progress.sectionPage = data[2] | (data[3] << 8);
-      Serial.printf("[PROGRESS] Loaded EPUB: spine=%d page=%d\n", progress.spineIndex, progress.sectionPage);
-    } else if (type == ContentType::Xtc) {
-      progress.flatPage = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
-      Serial.printf("[PROGRESS] Loaded XTC: page %u\n", progress.flatPage);
-    } else {
-      // TXT/Markdown
-      progress.sectionPage = data[0] | (data[1] << 8);
-      Serial.printf("[PROGRESS] Loaded text: page %d\n", progress.sectionPage);
-    }
+  uint8_t data[4];
+  if (file.read(data, 4) != 4) {
+    Serial.println("[PROGRESS] Read failed, using defaults");
+    file.close();
+    return progress;
+  }
+
+  if (type == ContentType::Epub) {
+    progress.spineIndex = data[0] | (data[1] << 8);
+    progress.sectionPage = data[2] | (data[3] << 8);
+    Serial.printf("[PROGRESS] Loaded EPUB: spine=%d page=%d\n", progress.spineIndex, progress.sectionPage);
+  } else if (type == ContentType::Xtc) {
+    progress.flatPage = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+    Serial.printf("[PROGRESS] Loaded XTC: page %u\n", progress.flatPage);
+  } else {
+    // TXT/Markdown
+    progress.sectionPage = data[0] | (data[1] << 8);
+    Serial.printf("[PROGRESS] Loaded text: page %d\n", progress.sectionPage);
   }
 
   file.close();

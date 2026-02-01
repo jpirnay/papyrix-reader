@@ -138,6 +138,7 @@ void ReaderState::enter(Core& core) {
   renderer_.clearWidthCache();
 
   contentLoaded_ = false;
+  loadFailed_ = false;
   needsRender_ = true;
   xSemaphoreTake(cacheMutex_, portMAX_DELAY);
   pageCache_.reset();
@@ -190,6 +191,7 @@ void ReaderState::enter(Core& core) {
     Serial.printf("[READER] Failed to open content: %s\n", errorToString(result.err));
     // Store error message for ErrorState to display
     snprintf(core.buf.text, sizeof(core.buf.text), "Cannot open file:\n%s", errorToString(result.err));
+    loadFailed_ = true;  // Mark as failed for update() to transition to error state
     return;
   }
 
@@ -291,7 +293,8 @@ void ReaderState::exit(Core& core) {
 }
 
 StateTransition ReaderState::update(Core& core) {
-  if (!contentLoaded_) {
+  // Handle load failure - transition to error state or back to file list
+  if (loadFailed_ || !contentLoaded_) {
     // If error message was set, show ErrorState; otherwise just go back to FileList
     if (core.buf.text[0] != '\0') {
       return StateTransition::to(StateId::Error);
@@ -567,6 +570,7 @@ void ReaderState::renderCachedPage(Core& core) {
     renderer_.drawCenteredText(core.settings.getReaderFontId(theme), 300, "Failed to load page", theme.primaryTextBlack,
                                BOLD);
     renderer_.displayBuffer();
+    needsRender_ = false;  // Prevent infinite render loop on cache failure
     return;
   }
 

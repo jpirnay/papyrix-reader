@@ -78,8 +78,17 @@ bool Page::serialize(FsFile& file) const {
 std::unique_ptr<Page> Page::deserialize(FsFile& file) {
   auto page = std::unique_ptr<Page>(new Page());
 
+  // Max elements per page - prevents memory exhaustion from corrupted cache
+  constexpr uint16_t MAX_PAGE_ELEMENTS = 500;
+
   uint16_t count;
   serialization::readPod(file, count);
+
+  // Validate element count to prevent memory exhaustion
+  if (count > MAX_PAGE_ELEMENTS) {
+    Serial.printf("[%lu] [PGE] Element count %u exceeds limit %u\n", millis(), count, MAX_PAGE_ELEMENTS);
+    return nullptr;
+  }
 
   for (uint16_t i = 0; i < count; i++) {
     uint8_t tag;

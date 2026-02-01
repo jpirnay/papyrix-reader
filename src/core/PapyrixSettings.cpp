@@ -81,6 +81,13 @@ Result<void> Settings::load(drivers::Storage& storage) {
   uint8_t fileSettingsCount = 0;
   serialization::readPod(inputFile, fileSettingsCount);
 
+  // Cap fileSettingsCount to prevent reading garbage from corrupted files
+  if (fileSettingsCount > SETTINGS_COUNT) {
+    Serial.printf("[%lu] [SET] fileSettingsCount %u exceeds max %u, capping\n", millis(), fileSettingsCount,
+                  SETTINGS_COUNT);
+    fileSettingsCount = SETTINGS_COUNT;
+  }
+
   // Load settings that exist (support older files with fewer fields)
   // readPodValidated keeps default value if read value >= maxValue
   uint8_t settingsRead = 0;
@@ -213,6 +220,13 @@ bool Settings::loadFromFile() {
 
   uint8_t fileSettingsCount = 0;
   serialization::readPod(inputFile, fileSettingsCount);
+
+  // Cap fileSettingsCount to prevent reading garbage from corrupted files
+  if (fileSettingsCount > SETTINGS_COUNT) {
+    Serial.printf("[%lu] [SET] fileSettingsCount %u exceeds max %u, capping\n", millis(), fileSettingsCount,
+                  SETTINGS_COUNT);
+    fileSettingsCount = SETTINGS_COUNT;
+  }
 
   uint8_t settingsRead = 0;
   do {

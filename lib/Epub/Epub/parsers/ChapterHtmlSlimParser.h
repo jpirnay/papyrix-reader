@@ -52,6 +52,21 @@ class ChapterHtmlSlimParser {
   XML_Parser xmlParser_ = nullptr;
   bool stopRequested_ = false;
 
+  // Image failure rate limiting - skip remaining images after consecutive failures
+  uint8_t consecutiveImageFailures_ = 0;
+  static constexpr uint8_t MAX_CONSECUTIVE_IMAGE_FAILURES = 3;
+
+  // Parser safety - timeout and memory checks
+  uint32_t parseStartTime_ = 0;
+  uint16_t loopCounter_ = 0;
+  uint16_t pagesCreated_ = 0;
+  static constexpr uint32_t MAX_PARSE_TIME_MS = 20000;   // 20 second timeout
+  static constexpr uint16_t YIELD_CHECK_INTERVAL = 100;  // Check every 100 iterations
+  static constexpr size_t MIN_FREE_HEAP = 8192;          // 8KB minimum free heap
+
+  // Check if parsing should abort due to timeout or memory pressure
+  bool shouldAbort() const;
+
   void startNewTextBlock(TextBlock::BLOCK_STYLE style);
   void flushPartWordBuffer();
   void makePages();

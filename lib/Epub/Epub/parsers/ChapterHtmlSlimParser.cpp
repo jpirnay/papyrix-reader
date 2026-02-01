@@ -6,7 +6,10 @@
 #include <HardwareSerial.h>
 #include <ImageConverter.h>
 #include <SDCardManager.h>
+#include <esp_heap_caps.h>
 #include <expat.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "../Page.h"
 
@@ -358,7 +361,26 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
   }
 }
 
+bool ChapterHtmlSlimParser::shouldAbort() const {
+  // Check timeout
+  if (millis() - parseStartTime_ > MAX_PARSE_TIME_MS) {
+    Serial.printf("[%lu] [EHP] Parse timeout exceeded (%u ms)\n", millis(), MAX_PARSE_TIME_MS);
+    return true;
+  }
+
+  // Check memory pressure
+  const size_t freeHeap = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+  if (freeHeap < MIN_FREE_HEAP) {
+    Serial.printf("[%lu] [EHP] Low memory (%zu bytes free)\n", millis(), freeHeap);
+    return true;
+  }
+
+  return false;
+}
+
 bool ChapterHtmlSlimParser::parseAndBuildPages() {
+  parseStartTime_ = millis();
+  loopCounter_ = 0;
   startNewTextBlock(static_cast<TextBlock::BLOCK_STYLE>(config.paragraphAlignment));
 
   const XML_Parser parser = XML_ParserCreate(nullptr);
@@ -380,12 +402,22 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   const size_t totalSize = file.size();
   size_t bytesRead = 0;
   int lastProgress = -1;
+  pagesCreated_ = 0;
 
   XML_SetUserData(parser, this);
   XML_SetElementHandler(parser, startElement, endElement);
   XML_SetCharacterDataHandler(parser, characterData);
 
   do {
+    // Periodic safety check and yield
+    if (++loopCounter_ % YIELD_CHECK_INTERVAL == 0) {
+      if (shouldAbort()) {
+        Serial.printf("[%lu] [EHP] Aborting parse, pages created: %u\n", millis(), pagesCreated_);
+        break;
+      }
+      vTaskDelay(1);  // Yield to prevent watchdog reset
+    }
+
     void* const buf = XML_GetBuffer(parser, 1024);
     if (!buf) {
       Serial.printf("[%lu] [EHP] Couldn't allocate memory for buffer\n", millis());
@@ -469,6 +501,7 @@ void ChapterHtmlSlimParser::addLineToPage(std::shared_ptr<TextBlock> line) {
   const int lineHeight = renderer.getLineHeight(config.fontId) * config.lineCompression;
 
   if (currentPageNextY + lineHeight > config.viewportHeight) {
+    ++pagesCreated_;
     if (!completePageFn(std::move(currentPage))) {
       stopRequested_ = true;
       if (xmlParser_) {
@@ -511,6 +544,12 @@ void ChapterHtmlSlimParser::makePages() {
 }
 
 std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
+  // Skip remaining images after too many consecutive failures
+  if (consecutiveImageFailures_ >= MAX_CONSECUTIVE_IMAGE_FAILURES) {
+    Serial.printf("[%lu] [EHP] Skipping image - too many failures\n", millis());
+    return "";
+  }
+
   // Resolve relative path from chapter base
   std::string resolvedPath = FsHelpers::normalisePath(chapterBasePath + src);
 
@@ -520,12 +559,14 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
 
   // Check if already cached
   if (SdMan.exists(cachedBmpPath.c_str())) {
+    consecutiveImageFailures_ = 0;  // Reset on success
     return cachedBmpPath;
   }
 
   // Check for failed marker
   std::string failedMarker = imageCachePath + "/" + std::to_string(srcHash) + ".failed";
   if (SdMan.exists(failedMarker.c_str())) {
+    consecutiveImageFailures_++;
     return "";
   }
 
@@ -536,6 +577,7 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
     if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
       marker.close();
     }
+    consecutiveImageFailures_++;
     return "";
   }
 
@@ -556,6 +598,7 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
     if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
       marker.close();
     }
+    consecutiveImageFailures_++;
     return "";
   }
   tempFile.close();
@@ -577,9 +620,11 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
     if (SdMan.openFileForWrite("EHP", failedMarker, marker)) {
       marker.close();
     }
+    consecutiveImageFailures_++;
     return "";
   }
 
+  consecutiveImageFailures_ = 0;  // Reset on success
   Serial.printf("[%lu] [EHP] Cached image: %s\n", millis(), cachedBmpPath.c_str());
   return cachedBmpPath;
 }

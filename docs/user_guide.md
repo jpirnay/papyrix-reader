@@ -78,7 +78,12 @@ The Files screen acts as a folder and file browser.
 
 > **Note:** EPUB (.epub), XTC (.xtc, .xtch), Markdown (.md, .markdown), and plain text (.txt, .text) file formats are supported. EPUB 2 and EPUB 3 formats are fully supported. Markdown files render with basic formatting (headers, bold, italic, lists). The device supports both FAT32 and exFAT formatted SD cards.
 
-> **Note:** System folders (LOST.DIR, $RECYCLE.BIN, etc.) are automatically hidden from the file browser.
+> **Note:** The following folders are automatically hidden from the file browser:
+> - `System Volume Information`, `LOST.DIR`, `$RECYCLE.BIN` — OS system folders
+> - `config` — Papyrix configuration files
+> - `XTCache` — XTC format cache
+> - `sleep` — Custom sleep screen images
+> - `.papyrix` — Internal cache (dot-prefix hidden by default)
 
 > **Note:** Each folder can display up to 1000 items. Organize large libraries into subfolders if you exceed this limit.
 

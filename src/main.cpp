@@ -135,6 +135,14 @@ void verifyWakeupLongPress() {
     return;
   }
 
+  // Fast path for short press mode - skip verification entirely.
+  // When "Short Power Button" is set to "Sleep", rtcPowerButtonDurationMs is 10ms.
+  // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state after wake-up.
+  if (rtcPowerButtonDurationMs <= 10) {
+    Serial.printf("[%lu] [   ] Skipping wakeup verification (short press mode)\n", millis());
+    return;
+  }
+
   // Give the user up to 1000ms to start holding the power button, and must hold for the configured duration
   const auto start = millis();
   bool abort = false;

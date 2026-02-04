@@ -366,6 +366,18 @@ void ReaderState::navigateNext(Core& core) {
   // Stop background task before accessing pageCache_ (ownership model)
   stopBackgroundCaching();
 
+  ContentType type = core.content.metadata().type;
+
+  // XTC uses flatPage navigation, not spine/section - skip to navigation logic
+  if (type == ContentType::Xtc) {
+    ReaderNavigation::Position pos;
+    pos.flatPage = currentPage_;
+    auto result = ReaderNavigation::next(type, pos, nullptr, core.content.pageCount());
+    applyNavResult(result, core);
+    return;
+  }
+
+  // Spine/section logic for EPUB, TXT, Markdown
   // From cover (-1) -> first text content page
   if (currentSpineIndex_ == 0 && currentSectionPage_ == -1) {
     auto* provider = core.content.asEpub();
@@ -385,7 +397,6 @@ void ReaderState::navigateNext(Core& core) {
     return;
   }
 
-  ContentType type = core.content.metadata().type;
   ReaderNavigation::Position pos;
   pos.spineIndex = currentSpineIndex_;
   pos.sectionPage = currentSectionPage_;
@@ -398,6 +409,18 @@ void ReaderState::navigatePrev(Core& core) {
   // Stop background task before accessing pageCache_ (ownership model)
   stopBackgroundCaching();
 
+  ContentType type = core.content.metadata().type;
+
+  // XTC uses flatPage navigation, not spine/section - skip to navigation logic
+  if (type == ContentType::Xtc) {
+    ReaderNavigation::Position pos;
+    pos.flatPage = currentPage_;
+    auto result = ReaderNavigation::prev(type, pos, nullptr);
+    applyNavResult(result, core);
+    return;
+  }
+
+  // Spine/section logic for EPUB, TXT, Markdown
   auto* provider = core.content.asEpub();
   size_t spineCount = 1;
   if (provider && provider->getEpub()) {
@@ -423,7 +446,6 @@ void ReaderState::navigatePrev(Core& core) {
     return;                        // Already at cover
   }
 
-  ContentType type = core.content.metadata().type;
   ReaderNavigation::Position pos;
   pos.spineIndex = currentSpineIndex_;
   pos.sectionPage = currentSectionPage_;

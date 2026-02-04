@@ -2,6 +2,7 @@
 
 #include <ExternalFont.h>
 #include <ScriptDetector.h>
+#include <StreamingEpdFont.h>
 #include <ThaiShaper.h>
 #include <Utf8.h>
 
@@ -9,6 +10,7 @@ void GfxRenderer::insertFont(const int fontId, EpdFontFamily font) { fontMap.ins
 
 void GfxRenderer::removeFont(const int fontId) {
   fontMap.erase(fontId);
+  _streamingFonts.erase(fontId);
   wordWidthCache.clear();
 }
 
@@ -166,7 +168,7 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
 
   uint32_t cp;
   while ((cp = utf8NextCodepoint(reinterpret_cast<const uint8_t**>(&text)))) {
-    renderChar(font, cp, &xpos, &yPos, black, style);
+    renderChar(font, cp, &xpos, &yPos, black, style, fontId);
   }
 }
 
@@ -724,7 +726,7 @@ void GfxRenderer::cleanupGrayscaleWithFrameBuffer() const {
 }
 
 void GfxRenderer::renderChar(const EpdFontFamily& fontFamily, const uint32_t cp, int* x, const int* y,
-                             const bool pixelState, const EpdFontFamily::Style style) const {
+                             const bool pixelState, const EpdFontFamily::Style style, const int fontId) const {
   const EpdGlyph* glyph = fontFamily.getGlyph(cp, style);
   if (!glyph) {
     // Try external font fallback (for CJK characters)
@@ -757,8 +759,15 @@ void GfxRenderer::renderChar(const EpdFontFamily& fontFamily, const uint32_t cp,
   const uint8_t height = glyph->height;
   const int left = glyph->left;
 
+  // Check for streaming font first - if available, get bitmap from streaming font
   const uint8_t* bitmap = nullptr;
-  bitmap = &fontFamily.getData(style)->bitmap[offset];
+  auto streamingIt = _streamingFonts.find(fontId);
+  if (streamingIt != _streamingFonts.end() && streamingIt->second) {
+    bitmap = streamingIt->second->getGlyphBitmap(glyph);
+  } else if (fontFamily.getData(style)->bitmap) {
+    // Fall back to standard EpdFont bitmap access
+    bitmap = &fontFamily.getData(style)->bitmap[offset];
+  }
 
   if (bitmap != nullptr) {
     const int screenHeight = getScreenHeight();

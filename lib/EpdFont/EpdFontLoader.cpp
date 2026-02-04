@@ -7,6 +7,10 @@
 
 static constexpr uint32_t MAX_BITMAP_SIZE = 512 * 1024;  // 512KB
 
+// Binary format: width(1) + height(1) + advanceX(1) + padding(1) +
+//                left(2) + top(2) + dataLength(2) + dataOffset(4) = 14 bytes
+static constexpr int GLYPH_BINARY_SIZE = 14;
+
 bool EpdFontLoader::validateMetricsAndMemory(const FileMetrics& metrics) {
   if (metrics.intervalCount > 10000 || metrics.glyphCount > 100000 || metrics.bitmapSize > MAX_BITMAP_SIZE) {
     Serial.printf("[FONTLOAD] Font exceeds size limits (bitmap=%u, max=%u). Using default font.\n", metrics.bitmapSize,
@@ -27,7 +31,7 @@ bool EpdFontLoader::validateMetricsAndMemory(const FileMetrics& metrics) {
 }
 
 EpdFontLoader::LoadResult EpdFontLoader::loadFromFile(const char* path) {
-  LoadResult result = {false, nullptr, nullptr, nullptr, nullptr};
+  LoadResult result = {false, nullptr, nullptr, nullptr, nullptr, 0, 0, 0};
 
   FsFile file = SdMan.open(path, O_RDONLY);
   if (!file) {
@@ -96,10 +100,10 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromFile(const char* path) {
     return result;
   }
 
-  // Read glyphs (14 bytes each in binary format, field by field)
+  // Read glyphs (field by field from binary format)
   for (uint32_t i = 0; i < metrics.glyphCount; i++) {
-    uint8_t glyphData[14];
-    if (file.read(glyphData, 14) != 14) {
+    uint8_t glyphData[GLYPH_BINARY_SIZE];
+    if (file.read(glyphData, GLYPH_BINARY_SIZE) != GLYPH_BINARY_SIZE) {
       Serial.printf("[FONTLOAD] Failed to read glyph %u\n", i);
       freeLoadResult(result);
       file.close();
@@ -135,10 +139,16 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromFile(const char* path) {
   result.fontData->descender = metrics.descender;
   result.fontData->is2Bit = is2Bit;
 
+  // Store sizes for memory profiling
+  result.bitmapSize = metrics.bitmapSize;
+  result.glyphsSize = metrics.glyphCount * sizeof(EpdGlyph);
+  result.intervalsSize = intervalsSize;
+
   result.success = true;
   file.close();
 
-  Serial.printf("[FONTLOAD] Successfully loaded font from %s\n", path);
+  Serial.printf("[FONTLOAD] Loaded %s: %zu bytes (bitmap=%u, glyphs=%zu, intervals=%zu)\n", path, result.totalSize(),
+                metrics.bitmapSize, result.glyphsSize, result.intervalsSize);
   return result;
 }
 
@@ -147,11 +157,120 @@ void EpdFontLoader::freeLoadResult(LoadResult& result) {
   delete[] result.bitmap;
   delete[] result.glyphs;
   delete[] result.intervals;
-  result = {false, nullptr, nullptr, nullptr, nullptr};
+  result = {false, nullptr, nullptr, nullptr, nullptr, 0, 0, 0};
+}
+
+EpdFontLoader::StreamingLoadResult EpdFontLoader::loadForStreaming(const char* path) {
+  StreamingLoadResult result = {false, {}, nullptr, nullptr, 0, 0, 0, 0};
+
+  FsFile file = SdMan.open(path, O_RDONLY);
+  if (!file) {
+    return result;
+  }
+
+  // Read and validate header
+  FileHeader header;
+  if (file.read(reinterpret_cast<uint8_t*>(&header), sizeof(header)) != sizeof(header)) {
+    file.close();
+    return result;
+  }
+
+  if (header.magic != MAGIC || header.version != VERSION) {
+    file.close();
+    return result;
+  }
+
+  bool is2Bit = (header.flags & 0x01) != 0;
+
+  // Read metrics
+  FileMetrics metrics;
+  if (file.read(reinterpret_cast<uint8_t*>(&metrics), sizeof(metrics)) != sizeof(metrics)) {
+    file.close();
+    return result;
+  }
+
+  // Validate metrics (less strict for streaming - we don't load bitmap into RAM)
+  if (metrics.intervalCount > 10000 || metrics.glyphCount > 100000) {
+    file.close();
+    return result;
+  }
+
+  // Calculate required memory (without bitmap)
+  size_t requiredMemory =
+      metrics.intervalCount * sizeof(EpdUnicodeInterval) + metrics.glyphCount * sizeof(EpdGlyph) + sizeof(EpdFontData);
+  size_t availableHeap = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+  if (requiredMemory > availableHeap * 0.8) {
+    file.close();
+    return result;
+  }
+
+  // Allocate memory for intervals and glyphs only
+  result.intervals = new (std::nothrow) EpdUnicodeInterval[metrics.intervalCount];
+  result.glyphs = new (std::nothrow) EpdGlyph[metrics.glyphCount];
+
+  if (!result.intervals || !result.glyphs) {
+    freeStreamingResult(result);
+    file.close();
+    return result;
+  }
+
+  // Read intervals
+  size_t intervalsSize = metrics.intervalCount * sizeof(EpdUnicodeInterval);
+  if (file.read(reinterpret_cast<uint8_t*>(result.intervals), intervalsSize) != intervalsSize) {
+    freeStreamingResult(result);
+    file.close();
+    return result;
+  }
+
+  // Read glyphs (field by field from binary format)
+  for (uint32_t i = 0; i < metrics.glyphCount; i++) {
+    uint8_t glyphData[GLYPH_BINARY_SIZE];
+    if (file.read(glyphData, GLYPH_BINARY_SIZE) != GLYPH_BINARY_SIZE) {
+      freeStreamingResult(result);
+      file.close();
+      return result;
+    }
+    result.glyphs[i].width = glyphData[0];
+    result.glyphs[i].height = glyphData[1];
+    result.glyphs[i].advanceX = glyphData[2];
+    result.glyphs[i].left = static_cast<int16_t>(glyphData[4] | (glyphData[5] << 8));
+    result.glyphs[i].top = static_cast<int16_t>(glyphData[6] | (glyphData[7] << 8));
+    result.glyphs[i].dataLength = static_cast<uint16_t>(glyphData[8] | (glyphData[9] << 8));
+    result.glyphs[i].dataOffset =
+        static_cast<uint32_t>(glyphData[10] | (glyphData[11] << 8) | (glyphData[12] << 16) | (glyphData[13] << 24));
+  }
+
+  // Record bitmap offset (current file position after reading glyphs)
+  result.bitmapOffset = file.position();
+
+  // Populate font data structure (bitmap stays nullptr for streaming)
+  result.fontData.bitmap = nullptr;
+  result.fontData.glyph = result.glyphs;
+  result.fontData.intervals = result.intervals;
+  result.fontData.intervalCount = metrics.intervalCount;
+  result.fontData.advanceY = metrics.advanceY;
+  result.fontData.ascender = metrics.ascender;
+  result.fontData.descender = metrics.descender;
+  result.fontData.is2Bit = is2Bit;
+
+  // Store sizes for memory profiling
+  result.glyphCount = metrics.glyphCount;
+  result.glyphsSize = metrics.glyphCount * sizeof(EpdGlyph);
+  result.intervalsSize = intervalsSize;
+
+  result.success = true;
+  file.close();
+  return result;
+}
+
+void EpdFontLoader::freeStreamingResult(StreamingLoadResult& result) {
+  delete[] result.glyphs;
+  delete[] result.intervals;
+  result = {false, {}, nullptr, nullptr, 0, 0, 0, 0};
 }
 
 EpdFontLoader::LoadResult EpdFontLoader::loadFromLittleFS(const char* path) {
-  LoadResult result = {false, nullptr, nullptr, nullptr, nullptr};
+  LoadResult result = {false, nullptr, nullptr, nullptr, nullptr, 0, 0, 0};
 
   File file = LittleFS.open(path, "r");
   if (!file) {
@@ -220,10 +339,10 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromLittleFS(const char* path) {
     return result;
   }
 
-  // Read glyphs (14 bytes each in binary format, field by field)
+  // Read glyphs (field by field from binary format)
   for (uint32_t i = 0; i < metrics.glyphCount; i++) {
-    uint8_t glyphData[14];
-    if (file.read(glyphData, 14) != 14) {
+    uint8_t glyphData[GLYPH_BINARY_SIZE];
+    if (file.read(glyphData, GLYPH_BINARY_SIZE) != GLYPH_BINARY_SIZE) {
       Serial.printf("[FONTLOAD] Failed to read glyph %u from LittleFS\n", i);
       freeLoadResult(result);
       file.close();
@@ -259,9 +378,15 @@ EpdFontLoader::LoadResult EpdFontLoader::loadFromLittleFS(const char* path) {
   result.fontData->descender = metrics.descender;
   result.fontData->is2Bit = is2Bit;
 
+  // Store sizes for memory profiling
+  result.bitmapSize = metrics.bitmapSize;
+  result.glyphsSize = metrics.glyphCount * sizeof(EpdGlyph);
+  result.intervalsSize = intervalsSize;
+
   result.success = true;
   file.close();
 
-  Serial.printf("[FONTLOAD] Successfully loaded font from LittleFS: %s\n", path);
+  Serial.printf("[FONTLOAD] Loaded %s: %zu bytes (bitmap=%u, glyphs=%zu, intervals=%zu)\n", path, result.totalSize(),
+                metrics.bitmapSize, result.glyphsSize, result.intervalsSize);
   return result;
 }

@@ -39,11 +39,13 @@ include_directories(
   ${PROJECT_ROOT}/lib/Markdown
   ${PROJECT_ROOT}/lib/Txt
   ${PROJECT_ROOT}/lib/GfxRenderer
+  ${PROJECT_ROOT}/lib/EpdFont
 )
 
 # Common test helpers
 set(TEST_HELPERS
   ${CMAKE_CURRENT_SOURCE_DIR}/common/test_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/common/test_font_data.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/mocks/platform_stubs.cpp
 )
 

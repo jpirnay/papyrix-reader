@@ -12,6 +12,8 @@
 
 // Forward declaration for external CJK font support
 class ExternalFont;
+// Forward declaration for streaming font support
+class StreamingEpdFont;
 
 class GfxRenderer {
  public:
@@ -36,6 +38,7 @@ class GfxRenderer {
   Orientation orientation;
   uint8_t* bwBufferChunks[BW_BUFFER_NUM_CHUNKS] = {nullptr};
   std::map<int, EpdFontFamily> fontMap;
+  std::map<int, StreamingEpdFont*> _streamingFonts;
   ExternalFont* _externalFont = nullptr;
 
   // Pre-allocated row buffers for bitmap rendering (reduces heap fragmentation)
@@ -70,7 +73,7 @@ class GfxRenderer {
   }
 
   void renderChar(const EpdFontFamily& fontFamily, uint32_t cp, int* x, const int* y, bool pixelState,
-                  EpdFontFamily::Style style) const;
+                  EpdFontFamily::Style style, int fontId) const;
   void renderThaiCluster(const EpdFontFamily& fontFamily, const ThaiShaper::ThaiCluster& cluster, int* x, int y,
                          bool pixelState, EpdFontFamily::Style style, int fontId) const;
   void renderExternalGlyph(uint32_t cp, int* x, int y, bool pixelState) const;
@@ -95,6 +98,12 @@ class GfxRenderer {
   void clearWidthCache() { wordWidthCache.clear(); }
   void setExternalFont(ExternalFont* font) { _externalFont = font; }
   ExternalFont* getExternalFont() const { return _externalFont; }
+  void setStreamingFont(int fontId, StreamingEpdFont* font) { _streamingFonts[fontId] = font; }
+  void removeStreamingFont(int fontId) { _streamingFonts.erase(fontId); }
+  StreamingEpdFont* getStreamingFont(int fontId) const {
+    auto it = _streamingFonts.find(fontId);
+    return it != _streamingFonts.end() ? it->second : nullptr;
+  }
 
   // Orientation control (affects logical width/height and coordinate transforms)
   void setOrientation(const Orientation o) { orientation = o; }

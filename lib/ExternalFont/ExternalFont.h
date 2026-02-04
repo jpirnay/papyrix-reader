@@ -76,6 +76,23 @@ class ExternalFont {
    */
   void logCacheStats() const;
 
+  /**
+   * Get the configured cache size (compile-time constant).
+   * Useful for memory profiling.
+   */
+  static constexpr int getCacheSize() { return CACHE_SIZE; }
+
+  /**
+   * Get the approximate cache memory usage in bytes.
+   * Returns total allocated size (cache entries + hash table).
+   * Formula: CACHE_SIZE * (~204 bytes per entry + 2 bytes hash table)
+   */
+  static constexpr size_t getCacheMemorySize() {
+    // Each entry: ~204 bytes (codepoint + bitmap[200] + lastUsed + notFound + minX + advanceX)
+    // Hash table: 2 bytes per entry (int16_t)
+    return static_cast<size_t>(CACHE_SIZE) * (204 + sizeof(int16_t));
+  }
+
  private:
   // Font file handle (keep open to avoid repeated open/close)
   FsFile _fontFile;
@@ -89,9 +106,20 @@ class ExternalFont {
   uint8_t _bytesPerRow = 0;
   uint16_t _bytesPerChar = 0;
 
-  // LRU cache - 256 glyphs for better Chinese text performance
-  // Memory: ~52KB (256 * 204 bytes per entry)
-  static constexpr int CACHE_SIZE = 256;       // 256 glyphs
+  // LRU cache configuration for CJK glyph caching
+  // Trade-off: larger cache = better performance with CJK text, but more RAM usage
+  //
+  // Memory usage: CACHE_SIZE * ~204 bytes per entry
+  //   - 256 entries = ~52KB (default, good for CJK-heavy content)
+  //   - 128 entries = ~26KB (reduced, suitable for memory-constrained scenarios)
+  //   - 64 entries  = ~13KB (minimal, may cause cache thrashing with CJK)
+  //
+  // To reduce memory usage, change EXTERNAL_FONT_CACHE_SIZE before including this header,
+  // or modify the default below.
+#ifndef EXTERNAL_FONT_CACHE_SIZE
+#define EXTERNAL_FONT_CACHE_SIZE 256
+#endif
+  static constexpr int CACHE_SIZE = EXTERNAL_FONT_CACHE_SIZE;
   static constexpr int MAX_GLYPH_BYTES = 200;  // Max 200 bytes per glyph (enough for 33x39)
 
   struct CacheEntry {

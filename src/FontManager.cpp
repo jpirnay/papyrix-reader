@@ -2,6 +2,8 @@
 
 #include <EpdFontLoader.h>
 #include <SDCardManager.h>
+#include <StreamingEpdFont.h>
+#include <esp_heap_caps.h>
 
 #include <cstring>
 
@@ -32,7 +34,6 @@ bool FontManager::loadFontFamily(const char* familyName, int fontId) {
 
   // Check if directory exists
   if (!SdMan.exists(basePath)) {
-    Serial.printf("[FONT] Font family not found: %s\n", basePath);
     return false;
   }
 
@@ -44,28 +45,36 @@ bool FontManager::loadFontFamily(const char* familyName, int fontId) {
   char fontPath[80];
   snprintf(fontPath, sizeof(fontPath), "%s/regular.epdfont", basePath);
 
-  LoadedFont loaded = loadSingleFont(fontPath);
-  if (!loaded.font) {
-    Serial.printf("[FONT] Failed to load regular font for %s\n", familyName);
+  // Use streaming mode by default (saves ~50KB RAM per font)
+  LoadedFont loaded = _useStreamingFonts ? loadStreamingFont(fontPath) : loadSingleFont(fontPath);
+
+  if (!loaded.font && !loaded.streamingFont) {
     return false;
   }
 
   family.fonts.push_back(loaded);
-  Serial.printf("[FONT] Loaded %s/regular (bold/italic use same)\n", familyName);
 
   // Create font family with regular font for all styles
-  EpdFontFamily fontFamily(loaded.font, loaded.font, loaded.font, loaded.font);
+  // For streaming fonts, we wrap the StreamingEpdFont in an EpdFont adapter
+  EpdFont* fontPtr = loaded.font;
+  if (loaded.streamingFont) {
+    // StreamingEpdFont provides same getData() interface, but we need an EpdFont wrapper
+    fontPtr = new EpdFont(loaded.streamingFont->getData());
+    // Update the vector entry with the new font pointer (needed for cleanup)
+    family.fonts.back().font = fontPtr;
+    // Register streaming font with renderer for bitmap access
+    renderer->setStreamingFont(fontId, loaded.streamingFont);
+  }
+  EpdFontFamily fontFamily(fontPtr, fontPtr, fontPtr, fontPtr);
   renderer->insertFont(fontId, fontFamily);
 
   // Store for cleanup
   loadedFamilies[fontId] = std::move(family);
-
-  Serial.printf("[FONT] Registered font family %s with ID %d\n", familyName, fontId);
   return true;
 }
 
 FontManager::LoadedFont FontManager::loadSingleFont(const char* path) {
-  LoadedFont result = {nullptr, nullptr, nullptr, nullptr, nullptr};
+  LoadedFont result = {};
 
   if (!SdMan.exists(path)) {
     return result;
@@ -73,7 +82,6 @@ FontManager::LoadedFont FontManager::loadSingleFont(const char* path) {
 
   EpdFontLoader::LoadResult loaded = EpdFontLoader::loadFromFile(path);
   if (!loaded.success) {
-    Serial.printf("[FONT] Failed to load: %s\n", path);
     return result;
   }
 
@@ -83,16 +91,53 @@ FontManager::LoadedFont FontManager::loadSingleFont(const char* path) {
   result.intervals = loaded.intervals;
   result.font = new EpdFont(result.data);
 
+  // Store sizes for memory profiling
+  result.bitmapSize = loaded.bitmapSize;
+  result.glyphsSize = loaded.glyphsSize;
+  result.intervalsSize = loaded.intervalsSize;
+
+  return result;
+}
+
+FontManager::LoadedFont FontManager::loadStreamingFont(const char* path) {
+  LoadedFont result = {};
+
+  if (!SdMan.exists(path)) {
+    return result;
+  }
+
+  StreamingEpdFont* streamingFont = new (std::nothrow) StreamingEpdFont();
+  if (!streamingFont) {
+    return result;
+  }
+
+  if (!streamingFont->load(path)) {
+    delete streamingFont;
+    return result;
+  }
+
+  result.streamingFont = streamingFont;
+  // glyphsSize and intervalsSize are tracked inside StreamingEpdFont
+  // totalSize() will use streamingFont->getMemoryUsage()
+
   return result;
 }
 
 void FontManager::freeFont(LoadedFont& font) {
+  // Free streaming font if present
+  if (font.streamingFont) {
+    delete font.streamingFont;
+    font.streamingFont = nullptr;
+  }
+
+  // Free full-load font resources if present
   delete font.font;
   delete font.data;
   delete[] font.bitmap;
   delete[] font.glyphs;
   delete[] font.intervals;
-  font = {nullptr, nullptr, nullptr, nullptr, nullptr};
+
+  font = {};
 }
 
 void FontManager::unloadFontFamily(int fontId) {
@@ -105,7 +150,6 @@ void FontManager::unloadFontFamily(int fontId) {
       freeFont(f);
     }
     loadedFamilies.erase(it);
-    Serial.printf("[FONT] Unloaded font family ID %d\n", fontId);
   }
 }
 
@@ -119,7 +163,6 @@ void FontManager::unloadAllFonts() {
     }
   }
   loadedFamilies.clear();
-  Serial.println("[FONT] Unloaded all fonts");
 }
 
 std::vector<std::string> FontManager::listAvailableFonts() {
@@ -198,7 +241,6 @@ int FontManager::getReaderFontId(const char* familyName, int builtinFontId) {
   if (!familyName || !*familyName) {
     // Using built-in font - unload any custom reader font and external font
     if (_activeReaderFontId != 0 && _activeReaderFontId != builtinFontId) {
-      Serial.printf("[FONT] Unloading custom reader font ID %d (switching to built-in)\n", _activeReaderFontId);
       unloadFontFamily(_activeReaderFontId);
       _activeReaderFontId = 0;
     }
@@ -210,15 +252,12 @@ int FontManager::getReaderFontId(const char* familyName, int builtinFontId) {
   if (isBinFont(familyName)) {
     // Unload any previous custom .epdfont reader font
     if (_activeReaderFontId != 0 && _activeReaderFontId != builtinFontId) {
-      Serial.printf("[FONT] Unloading custom reader font ID %d (switching to .bin)\n", _activeReaderFontId);
       unloadFontFamily(_activeReaderFontId);
       _activeReaderFontId = 0;
     }
 
     // Load as external font - provides fallback for CJK characters
-    if (loadExternalFont(familyName)) {
-      Serial.printf("[FONT] Using built-in font + %s for CJK fallback\n", familyName);
-    }
+    loadExternalFont(familyName);
     // Return builtin font ID - ASCII uses built-in, CJK falls back to external
     return builtinFontId;
   }
@@ -227,7 +266,6 @@ int FontManager::getReaderFontId(const char* familyName, int builtinFontId) {
 
   // If switching to a different custom font, unload previous
   if (_activeReaderFontId != 0 && _activeReaderFontId != targetId) {
-    Serial.printf("[FONT] Unloading previous reader font ID %d\n", _activeReaderFontId);
     unloadFontFamily(_activeReaderFontId);
   }
 
@@ -257,14 +295,12 @@ bool FontManager::loadExternalFont(const char* filename) {
   }
 
   if (!_externalFont->load(path)) {
-    Serial.printf("[FONT] Failed to load external font: %s\n", path);
     delete _externalFont;
     _externalFont = nullptr;
     return false;
   }
 
   renderer->setExternalFont(_externalFont);
-  Serial.printf("[FONT] Loaded external font: %s (CJK fallback)\n", filename);
   return true;
 }
 
@@ -275,28 +311,49 @@ void FontManager::unloadExternalFont() {
     }
     delete _externalFont;
     _externalFont = nullptr;
-    Serial.println("[FONT] Unloaded external font");
   }
 }
 
 void FontManager::logFontInfo() const {
-  Serial.println("[FONT] === Current Font Configuration ===");
+  // No-op: debug logging removed
+}
 
-  // Log built-in fonts info
-  Serial.println("[FONT] Built-in reader fonts: small/medium/large (FLASH)");
-  Serial.println("[FONT] Built-in UI font: ui_12 (FLASH)");
+void FontManager::logMemoryStatus(const char*) const {
+  // No-op: debug logging removed
+}
 
-  // Log loaded custom fonts
-  for (const auto& entry : loadedFamilies) {
-    Serial.printf("[FONT] Custom: ID %d from SD (loaded)\n", entry.first);
+void FontManager::unloadReaderFonts() {
+  // Unload any custom .epdfont reader font
+  if (_activeReaderFontId != 0) {
+    unloadFontFamily(_activeReaderFontId);
+    _activeReaderFontId = 0;
   }
 
-  // Log external CJK font
+  // Unload external CJK font
+  unloadExternalFont();
+}
+
+size_t FontManager::getCustomFontMemoryUsage() const {
+  size_t total = 0;
+  for (const auto& pair : loadedFamilies) {
+    for (const auto& font : pair.second.fonts) {
+      total += font.totalSize();
+    }
+  }
+  return total;
+}
+
+size_t FontManager::getExternalFontMemoryUsage() const {
   if (_externalFont && _externalFont->isLoaded()) {
-    Serial.printf("[FONT] External CJK: %s_%d_%dx%d.bin from SD\n", _externalFont->getFontName(),
-                  _externalFont->getFontSize(), _externalFont->getCharWidth(), _externalFont->getCharHeight());
-    _externalFont->logCacheStats();
+    return ExternalFont::getCacheMemorySize();
   }
+  return 0;
+}
 
-  Serial.println("[FONT] =====================================");
+size_t FontManager::getTotalFontMemoryUsage() const {
+  return getCustomFontMemoryUsage() + getExternalFontMemoryUsage();
+}
+
+void FontManager::logMemoryReport() const {
+  // No-op: debug logging removed
 }

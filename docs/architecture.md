@@ -123,7 +123,8 @@ The ESP32 WiFi stack allocates ~100KB and fragments heap memory. After using WiF
 ### Caching
 
 - **Compressed thumbnails**: 2-4KB vs 48KB uncompressed
-- **Glyph caches**: 64-entry direct-mapped cache per font
+- **Glyph lookup cache**: 64-entry direct-mapped cache per font (codepoint → glyph)
+- **Glyph bitmap cache**: 128-entry LRU cache per streaming font (glyph → bitmap)
 - **Word width cache**: 512-entry FNV-1a hash cache in GfxRenderer
 - **SD card caching**: All parsed content cached to SD card
 
@@ -146,7 +147,34 @@ Storage → EpdFontLoader → FontManager → GfxRenderer → Display
 ### Memory
 
 - **Builtin fonts**: Flash (DROM), ~20 bytes RAM per wrapper
-- **Custom fonts**: SD card → heap, 300-500 KB each
+- **Custom fonts (streaming)**: ~25KB RAM per font (metadata + LRU cache)
+
+### Streaming Font System
+
+Custom fonts use `StreamingEpdFont` for memory efficiency:
+
+- **Metadata in RAM**: Glyph table (~10-15KB) and unicode intervals (~2KB)
+- **Bitmaps on SD**: Streamed on-demand, not stored in RAM
+- **LRU cache**: 128-entry cache for recently-used glyph bitmaps
+- **Hash table**: O(1) cache lookup with linear probing
+
+Memory comparison for a typical 50KB font:
+- **EpdFont (full load)**: ~70KB (intervals + glyphs + bitmap)
+- **StreamingEpdFont**: ~25KB (intervals + glyphs + cache)
+
+### Fallback Behavior
+
+The font system guarantees users can always read:
+
+1. **Font load failure** → Returns builtin font ID (FontManager.cpp)
+2. **Streaming bitmap failure** → Skips character gracefully (GfxRenderer.cpp)
+3. **Glyph not found** → Falls back to '?' character
+
+Defensive checks in StreamingEpdFont:
+- Bounds check on glyph index (corrupted font protection)
+- Validates file handle before SD reads
+- Rejects glyphs >4KB (corrupted data protection)
+- Returns nullptr on partial SD read (SD card errors)
 
 ### `.epdfont` Format
 
@@ -164,9 +192,10 @@ Header → Metrics → Unicode Intervals → Glyphs → Bitmap
 
 ### Key Files
 
-- `lib/EpdFont/` — Format parsing, loading, glyph lookup
-- `src/FontManager.h/cpp` — Font lifecycle management
-- `lib/GfxRenderer/` — Text rendering with fonts
+- `lib/EpdFont/EpdFontLoader.cpp` — Format parsing, full and streaming load modes
+- `lib/EpdFont/StreamingEpdFont.cpp` — Memory-efficient streaming font with LRU cache
+- `src/FontManager.h/cpp` — Font lifecycle management, fallback handling
+- `lib/GfxRenderer/` — Text rendering with streaming font integration
 - `scripts/convert-fonts.mjs` — TTF/OTF to `.epdfont` conversion
 
 ### CJK Support
@@ -418,7 +447,7 @@ class HomeState : public State {
 - **`Markdown/`** — Markdown format support
 - **`PageCache/`** — Unified page caching
 - **`GfxRenderer/`** — Graphics rendering
-- **`EpdFont/`** — Font loading and glyph cache
+- **`EpdFont/`** — Font loading (full and streaming modes) and glyph cache
 - **`ExternalFont/`** — CJK font support
 - **`ScriptDetector/`** — Script classification
 - **`ThaiShaper/`** — Thai text shaping

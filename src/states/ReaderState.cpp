@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "../Battery.h"
+#include "../FontManager.h"
 #include "../config.h"
 #include "../content/ProgressManager.h"
 #include "../content/ReaderNavigation.h"
@@ -284,6 +285,11 @@ void ReaderState::exit(Core& core) {
     pageCache_.reset();
     core.content.close();
   }
+
+  // Unload custom reader fonts to free memory
+  // Note: device may restart after this (dual-boot system), but explicit cleanup
+  // ensures predictable memory behavior and better logging
+  FONT_MANAGER.unloadReaderFonts();
 
   contentLoaded_ = false;
   contentPath_[0] = '\0';

@@ -37,6 +37,12 @@ class EpdFontLoader {
     uint8_t* bitmap;
     EpdGlyph* glyphs;
     EpdUnicodeInterval* intervals;
+    // Memory profiling - sizes in bytes
+    size_t bitmapSize;
+    size_t glyphsSize;
+    size_t intervalsSize;
+
+    size_t totalSize() const { return bitmapSize + glyphsSize + intervalsSize + sizeof(EpdFontData); }
   };
 
   /**
@@ -61,6 +67,35 @@ class EpdFontLoader {
    * Free memory allocated by loadFromFile.
    */
   static void freeLoadResult(LoadResult& result);
+
+  /**
+   * Result structure for streaming font loading.
+   * Contains metadata and glyph table but NOT bitmap data.
+   */
+  struct StreamingLoadResult {
+    bool success;
+    EpdFontData fontData;  // Copy of metadata (bitmap pointer is nullptr)
+    EpdGlyph* glyphs;
+    EpdUnicodeInterval* intervals;
+    uint32_t glyphCount;
+    uint32_t bitmapOffset;  // File offset where bitmap data starts
+    size_t glyphsSize;
+    size_t intervalsSize;
+  };
+
+  /**
+   * Load font for streaming mode - loads intervals and glyph table only.
+   * Bitmap data is NOT loaded; caller should stream it on demand.
+   *
+   * @param path Path to .epdfont file
+   * @return StreamingLoadResult with allocated glyphs/intervals (caller must free)
+   */
+  static StreamingLoadResult loadForStreaming(const char* path);
+
+  /**
+   * Free memory allocated by loadForStreaming.
+   */
+  static void freeStreamingResult(StreamingLoadResult& result);
 
  private:
   struct FileHeader {

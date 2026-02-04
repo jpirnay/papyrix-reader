@@ -2,6 +2,29 @@
 
 Papyrix Reader supports custom fonts for reading. Fonts are converted to a proprietary `.epdfont` format optimized for e-paper displays.
 
+## How Fonts Work
+
+### Streaming Font System
+
+Custom fonts use a memory-efficient **streaming** system that loads glyph bitmaps on-demand from the SD card rather than keeping the entire font in RAM. This saves approximately **50KB of RAM per font**.
+
+- **Glyph metadata** (character metrics, positions) is loaded into RAM
+- **Glyph bitmaps** (the actual pixels) are streamed from SD as needed
+- An **LRU cache** keeps recently-used glyphs in memory for fast access
+- Typical RAM usage: ~25KB per font (vs ~70KB for fully-loaded fonts)
+
+This is transparent to users - fonts work the same way, just more efficiently.
+
+### Fallback Behavior
+
+Papyrix ensures you can always read your books, even if a custom font fails:
+
+1. **Font load failure** → Built-in font is used automatically
+2. **Individual glyph failure** → Character is skipped gracefully (no crash)
+3. **SD card read error** → Affected characters skipped, reading continues
+
+If you notice missing characters, try switching to a different font in Settings. The built-in font is always available as a reliable fallback.
+
 ## Font Samples
 
 ### PT Serif

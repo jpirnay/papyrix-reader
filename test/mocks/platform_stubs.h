@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <cstring>
 
+// ESP32 heap caps stubs
+#ifndef MALLOC_CAP_8BIT
+#define MALLOC_CAP_8BIT 0x01
+#endif
+inline size_t heap_caps_get_largest_free_block(uint32_t) { return 200000; }
+
 // PROGMEM / pgm_read helpers for host builds
 #ifndef PROGMEM
 #define PROGMEM

@@ -4,12 +4,14 @@
 #include <cstdarg>
 #include <cstdio>
 
+#include "LittleFS.h"
 #include "WString.h"
 
 // Global mock instances
 MockSerial Serial;
 MockSPI SPI;
 MockESP ESP;
+MockLittleFS LittleFS;
 
 void MockSerial::printf(const char* fmt, ...) {
   va_list args;

@@ -4,6 +4,7 @@
 #include <EpdFontFamily.h>
 #include <ExternalFont.h>
 #include <GfxRenderer.h>
+#include <StreamingEpdFont.h>
 
 #include <map>
 #include <string>
@@ -122,6 +123,44 @@ class FontManager {
    */
   void logFontInfo() const;
 
+  /**
+   * Log current memory status for profiling.
+   * Logs free heap size and largest free block.
+   * @param context Description of when this is called (e.g., "before font load")
+   */
+  void logMemoryStatus(const char* context) const;
+
+  /**
+   * Unload the active reader font and external font.
+   * Call this when leaving reader mode to free memory.
+   */
+  void unloadReaderFonts();
+
+  /**
+   * Get total RAM usage by all loaded custom fonts (from SD card).
+   * Does not include built-in fonts (they are in Flash).
+   * @return Total bytes used by custom fonts
+   */
+  size_t getCustomFontMemoryUsage() const;
+
+  /**
+   * Get total RAM usage by the external CJK font cache.
+   * @return Bytes used by ExternalFont cache, or 0 if not loaded
+   */
+  size_t getExternalFontMemoryUsage() const;
+
+  /**
+   * Get total font-related RAM usage.
+   * @return Total bytes used by all font systems
+   */
+  size_t getTotalFontMemoryUsage() const;
+
+  /**
+   * Log detailed memory profiling report for all font subsystems.
+   * Includes per-font breakdown, cache stats, and heap status.
+   */
+  void logMemoryReport() const;
+
  private:
   FontManager();
   ~FontManager();
@@ -130,13 +169,31 @@ class FontManager {
 
   GfxRenderer* renderer = nullptr;
 
-  // Track loaded fonts for cleanup
+  // Track loaded fonts for cleanup and memory profiling
   struct LoadedFont {
-    EpdFont* font;
-    EpdFontData* data;
-    uint8_t* bitmap;
-    EpdGlyph* glyphs;
-    EpdUnicodeInterval* intervals;
+    // Either full font OR streaming font (not both)
+    EpdFont* font = nullptr;
+    StreamingEpdFont* streamingFont = nullptr;
+
+    // Full-load mode resources (font != nullptr)
+    EpdFontData* data = nullptr;
+    uint8_t* bitmap = nullptr;
+    EpdGlyph* glyphs = nullptr;
+    EpdUnicodeInterval* intervals = nullptr;
+
+    // Memory tracking (in bytes)
+    size_t bitmapSize = 0;
+    size_t glyphsSize = 0;
+    size_t intervalsSize = 0;
+
+    bool isStreaming() const { return streamingFont != nullptr; }
+
+    size_t totalSize() const {
+      if (streamingFont) {
+        return streamingFont->getMemoryUsage();
+      }
+      return bitmapSize + glyphsSize + intervalsSize + sizeof(EpdFontData) + sizeof(EpdFont);
+    }
   };
 
   struct LoadedFamily {
@@ -153,7 +210,11 @@ class FontManager {
   ExternalFont* _externalFont = nullptr;
 
   LoadedFont loadSingleFont(const char* path);
+  LoadedFont loadStreamingFont(const char* path);
   void freeFont(LoadedFont& font);
+
+  // Whether to use streaming fonts (default: true for memory savings)
+  bool _useStreamingFonts = true;
 };
 
 // Convenience macro

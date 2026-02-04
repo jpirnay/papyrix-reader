@@ -774,7 +774,6 @@ void ReaderState::renderXtcPage(Core& core) {
   }
 
   const Theme& theme = THEME_MANAGER.current();
-  const int fontId = core.settings.getReaderFontId(theme);
 
   auto result = xtcRenderer_.render(provider->getParser(), currentPage_, [this, &core]() { displayWithRefresh(core); });
 
@@ -782,16 +781,16 @@ void ReaderState::renderXtcPage(Core& core) {
     case XtcPageRenderer::RenderResult::Success:
       break;
     case XtcPageRenderer::RenderResult::EndOfBook:
-      ui::centeredMessage(renderer_, theme, fontId, "End of book");
+      ui::centeredMessage(renderer_, theme, theme.uiFontId, "End of book");
       break;
     case XtcPageRenderer::RenderResult::InvalidDimensions:
-      ui::centeredMessage(renderer_, theme, fontId, "Invalid file");
+      ui::centeredMessage(renderer_, theme, theme.uiFontId, "Invalid file");
       break;
     case XtcPageRenderer::RenderResult::AllocationFailed:
-      ui::centeredMessage(renderer_, theme, fontId, "Memory error");
+      ui::centeredMessage(renderer_, theme, theme.uiFontId, "Memory error");
       break;
     case XtcPageRenderer::RenderResult::PageLoadFailed:
-      ui::centeredMessage(renderer_, theme, fontId, "Page load error");
+      ui::centeredMessage(renderer_, theme, theme.uiFontId, "Page load error");
       break;
   }
 }

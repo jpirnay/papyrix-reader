@@ -28,6 +28,7 @@
 #include "MappedInputManager.h"
 #include "ThemeManager.h"
 #include "config.h"
+#include "content/ContentTypes.h"
 
 // New refactored core system
 #include "core/BootMode.h"
@@ -386,14 +387,25 @@ void initReaderMode() {
   Serial.printf("[%lu] [BOOT] [READER mode] Free heap: %lu, Max block: %lu\n", millis(), ESP.getFreeHeap(),
                 ESP.getMaxAllocHeap());
 
+  // Detect content type early to decide if we need custom fonts
+  // XTC/XTCH files contain pre-rendered bitmaps and don't need fonts for page rendering
+  const auto& transition = papyrix::getTransition();
+  papyrix::ContentType contentType = papyrix::detectContentType(transition.bookPath);
+  bool needsCustomFonts = (contentType != papyrix::ContentType::Xtc);
+
   // Initialize theme and font managers (minimal - no cache)
   FONT_MANAGER.init(renderer);
   THEME_MANAGER.loadTheme(papyrix::core.settings.themeName);
   // Skip createDefaultThemeFiles() - not needed in reader mode
   Serial.printf("[%lu] [   ] Theme loaded: %s (reader mode)\n", millis(), THEME_MANAGER.currentThemeName());
 
-  setupDisplayAndFonts();
-  applyThemeFonts();
+  setupDisplayAndFonts();  // Builtin fonts - always needed for UI
+
+  if (needsCustomFonts) {
+    applyThemeFonts();  // Custom fonts - skip for XTC/XTCH to save ~500KB+ RAM
+  } else {
+    Serial.printf("[%lu] [BOOT] Skipping custom fonts for XTC content\n", millis());
+  }
 
   // Register ONLY states needed for Reader mode
   stateMachine.registerState(&readerState);
@@ -410,9 +422,6 @@ void initReaderMode() {
 
   Serial.printf("[%lu] [CORE] State machine starting (READER mode)\n", millis());
   mappedInputManager.setSettings(&papyrix::core.settings);
-
-  // Get book path from transition
-  const auto& transition = papyrix::getTransition();
 
   if (transition.bookPath[0] != '\0') {
     // Copy path to shared buffer for ReaderState to consume

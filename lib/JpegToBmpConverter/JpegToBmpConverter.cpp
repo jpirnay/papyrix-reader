@@ -4,6 +4,7 @@
 #include <SdFat.h>
 #include <picojpeg.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -298,8 +299,8 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
     // Calculate scale to fit within target dimensions while maintaining aspect ratio
     const float scaleToFitWidth = static_cast<float>(targetWidth) / imageInfo.m_width;
     const float scaleToFitHeight = static_cast<float>(targetHeight) / imageInfo.m_height;
-    // We scale to the smaller dimension, so we can potentially crop later.
-    const float scale = (scaleToFitWidth > scaleToFitHeight) ? scaleToFitWidth : scaleToFitHeight;
+    // Choose smaller scale factor to ensure image fits within target dimensions (contain mode)
+    const float scale = std::min(scaleToFitWidth, scaleToFitHeight);
 
     outWidth = static_cast<int>(imageInfo.m_width * scale);
     outHeight = static_cast<int>(imageInfo.m_height * scale);

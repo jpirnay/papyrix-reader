@@ -99,6 +99,37 @@ static float calculateDemerits(float badness, bool isLastLine) {
   return (1.0f + badness) * (1.0f + badness);
 }
 
+// Known attaching punctuation (from ParsedText.cpp)
+static const std::vector<std::string> punctuation = {
+    ".",
+    ",",
+    "!",
+    "?",
+    ";",
+    ":",
+    "\"",
+    "'",
+    "\xE2\x80\x99",  // ' (U+2019 right single quote)
+    "\xE2\x80\x9D"   // " (U+201D right double quote)
+};
+
+static bool isAttachingPunctuationWord(const std::string& word) {
+  if (word.empty()) return false;
+  size_t pos = 0;
+  while (pos < word.size()) {
+    bool matched = false;
+    for (const auto& p : punctuation) {
+      if (word.compare(pos, p.size(), p) == 0) {
+        pos += p.size();
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return false;
+  }
+  return true;
+}
+
 // Greedy line breaking (simplified version for testing)
 static std::vector<size_t> computeLineBreaksGreedy(int pageWidth, int spaceWidth,
                                                    const std::vector<uint16_t>& wordWidths) {
@@ -439,6 +470,236 @@ int main() {
     const unsigned char* ptr = str;
     uint32_t cp = utf8NextCodepoint(&ptr);
     runner.expectTrue(isCjkCodepoint(cp), "CJK detection: hangul 가 detected");
+  }
+
+  // ============================================
+  // isAttachingPunctuationWord() tests
+  // ============================================
+
+  // Test 41: Empty string is not punctuation
+  runner.expectFalse(isAttachingPunctuationWord(""), "isAttachingPunctuation: empty string");
+
+  // Test 42: Single ASCII punctuation marks
+  runner.expectTrue(isAttachingPunctuationWord("."), "isAttachingPunctuation: period");
+  runner.expectTrue(isAttachingPunctuationWord(","), "isAttachingPunctuation: comma");
+  runner.expectTrue(isAttachingPunctuationWord("!"), "isAttachingPunctuation: exclamation");
+  runner.expectTrue(isAttachingPunctuationWord("?"), "isAttachingPunctuation: question mark");
+  runner.expectTrue(isAttachingPunctuationWord(";"), "isAttachingPunctuation: semicolon");
+  runner.expectTrue(isAttachingPunctuationWord(":"), "isAttachingPunctuation: colon");
+  runner.expectTrue(isAttachingPunctuationWord("\""), "isAttachingPunctuation: double quote");
+  runner.expectTrue(isAttachingPunctuationWord("'"), "isAttachingPunctuation: single quote");
+
+  // Test 43: Unicode curly quotes
+  runner.expectTrue(isAttachingPunctuationWord("\xE2\x80\x99"), "isAttachingPunctuation: U+2019 right single quote");
+  runner.expectTrue(isAttachingPunctuationWord("\xE2\x80\x9D"), "isAttachingPunctuation: U+201D right double quote");
+
+  // Test 44: Multiple punctuation marks
+  runner.expectTrue(isAttachingPunctuationWord(".."), "isAttachingPunctuation: double period");
+  runner.expectTrue(isAttachingPunctuationWord("..."), "isAttachingPunctuation: ellipsis (dots)");
+  runner.expectTrue(isAttachingPunctuationWord(",\""), "isAttachingPunctuation: comma + quote");
+  runner.expectTrue(isAttachingPunctuationWord(".'"), "isAttachingPunctuation: period + single quote");
+  runner.expectTrue(isAttachingPunctuationWord("?\xE2\x80\x9D"), "isAttachingPunctuation: question + curly quote");
+
+  // Test 45: Regular words are not punctuation
+  runner.expectFalse(isAttachingPunctuationWord("word"), "isAttachingPunctuation: regular word");
+  runner.expectFalse(isAttachingPunctuationWord("Hello"), "isAttachingPunctuation: capitalized word");
+  runner.expectFalse(isAttachingPunctuationWord("a"), "isAttachingPunctuation: single letter");
+
+  // Test 46: Mixed content (word + punctuation) is not pure punctuation
+  runner.expectFalse(isAttachingPunctuationWord("word."), "isAttachingPunctuation: word with trailing period");
+  runner.expectFalse(isAttachingPunctuationWord(".word"), "isAttachingPunctuation: leading period with word");
+  runner.expectFalse(isAttachingPunctuationWord("a."), "isAttachingPunctuation: letter with period");
+
+  // Test 47: Whitespace is not punctuation
+  runner.expectFalse(isAttachingPunctuationWord(" "), "isAttachingPunctuation: space");
+  runner.expectFalse(isAttachingPunctuationWord(". "), "isAttachingPunctuation: period + space");
+
+  // ============================================
+  // Attaching punctuation gap counting tests
+  // These test the logic used in extractLine() to calculate spacing
+  // when punctuation becomes a separate token due to inline styles
+  // ============================================
+
+  // Helper: count actual gaps (mirrors extractLine logic)
+  auto countActualGaps = [](const std::vector<std::string>& words) -> size_t {
+    size_t actualGapCount = 0;
+    for (size_t i = 1; i < words.size(); i++) {
+      if (!isAttachingPunctuationWord(words[i])) {
+        actualGapCount++;
+      }
+    }
+    return actualGapCount;
+  };
+
+  // Test 48: Normal words - all gaps count
+  // "Hello world today" -> 2 gaps (between each word)
+  {
+    std::vector<std::string> words = {"Hello", "world", "today"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(2), gaps, "gapCount: 3 normal words = 2 gaps");
+  }
+
+  // Test 49: Punctuation as separate token - gap excluded
+  // "Hello ," -> should be 0 gaps (comma attaches to Hello)
+  // This simulates: word<em>,</em>
+  {
+    std::vector<std::string> words = {"Hello", ","};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: word + punct = 0 gaps");
+  }
+
+  // Test 50: Word then punctuation then word
+  // "Hello , world" -> should be 1 gap (comma attaches to Hello, space before world)
+  // This simulates: Hello<em>,</em> world
+  {
+    std::vector<std::string> words = {"Hello", ",", "world"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(1), gaps, "gapCount: word + punct + word = 1 gap");
+  }
+
+  // Test 51: Multiple punctuation tokens in sequence
+  // "Hello ." "'" -> should be 0 gaps (both attach)
+  // This simulates: Hello<em>.'</em> split into tokens
+  {
+    std::vector<std::string> words = {"Hello", ".", "'"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: word + two punct = 0 gaps");
+  }
+
+  // Test 52: Quoted text pattern
+  // "said " "'" "Hello" -> 1 gap (quote attaches to said, gap before Hello)
+  // This simulates: said<em>'</em>Hello
+  {
+    std::vector<std::string> words = {"said", "'", "Hello"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(1), gaps, "gapCount: word + quote + word = 1 gap");
+  }
+
+  // Test 53: End quote pattern
+  // "Hello" "'" "," "he" "said" -> 2 gaps
+  // quote and comma attach to Hello, then gaps before "he" and "said"
+  {
+    std::vector<std::string> words = {"Hello", "'", ",", "he", "said"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(2), gaps, "gapCount: complex quote pattern = 2 gaps");
+  }
+
+  // Test 54: Single word - no gaps
+  {
+    std::vector<std::string> words = {"Hello"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: single word = 0 gaps");
+  }
+
+  // Test 55: Single punctuation - no gaps
+  {
+    std::vector<std::string> words = {"."};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: single punct = 0 gaps");
+  }
+
+  // Test 56: Empty word list - no gaps
+  {
+    std::vector<std::string> words = {};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: empty = 0 gaps");
+  }
+
+  // Test 57: Unicode curly quote as separate token
+  // "word" + right double quote -> 0 gaps
+  {
+    std::vector<std::string> words = {"word", "\xE2\x80\x9D"};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(0), gaps, "gapCount: word + curly quote = 0 gaps");
+  }
+
+  // Test 58: Mixed punctuation and words
+  // "The" "quick" "," "brown" "fox" "." -> 3 gaps
+  // comma attaches to quick, period attaches to fox
+  {
+    std::vector<std::string> words = {"The", "quick", ",", "brown", "fox", "."};
+    size_t gaps = countActualGaps(words);
+    runner.expectEq(static_cast<size_t>(3), gaps, "gapCount: sentence with inline punct = 3 gaps");
+  }
+
+  // ============================================
+  // Position calculation tests
+  // Verify that punctuation doesn't get space before it
+  // ============================================
+
+  // Helper: calculate word positions (mirrors extractLine logic)
+  auto calculatePositions = [](const std::vector<std::string>& words,
+                               const std::vector<uint16_t>& widths,
+                               int spacing) -> std::vector<uint16_t> {
+    std::vector<uint16_t> positions;
+    uint16_t xpos = 0;
+    for (size_t i = 0; i < words.size(); i++) {
+      positions.push_back(xpos);
+      // Add spacing after this word, unless next word is attaching punctuation
+      bool nextIsAttaching = (i + 1 < words.size()) && isAttachingPunctuationWord(words[i + 1]);
+      xpos += widths[i] + (nextIsAttaching ? 0 : spacing);
+    }
+    return positions;
+  };
+
+  // Test 59: Normal words get even spacing
+  {
+    std::vector<std::string> words = {"Hello", "world"};
+    std::vector<uint16_t> widths = {50, 50};
+    auto positions = calculatePositions(words, widths, 10);
+    runner.expectEq(static_cast<uint16_t>(0), positions[0], "positions: first word at 0");
+    runner.expectEq(static_cast<uint16_t>(60), positions[1], "positions: second word at 50+10=60");
+  }
+
+  // Test 60: Punctuation attaches without space
+  {
+    std::vector<std::string> words = {"Hello", ","};
+    std::vector<uint16_t> widths = {50, 5};
+    auto positions = calculatePositions(words, widths, 10);
+    runner.expectEq(static_cast<uint16_t>(0), positions[0], "positions: word at 0");
+    runner.expectEq(static_cast<uint16_t>(50), positions[1], "positions: punct at 50 (no space)");
+  }
+
+  // Test 61: Word + punct + word pattern
+  {
+    std::vector<std::string> words = {"Hello", ",", "world"};
+    std::vector<uint16_t> widths = {50, 5, 50};
+    auto positions = calculatePositions(words, widths, 10);
+    runner.expectEq(static_cast<uint16_t>(0), positions[0], "positions: Hello at 0");
+    runner.expectEq(static_cast<uint16_t>(50), positions[1], "positions: comma at 50 (attached)");
+    runner.expectEq(static_cast<uint16_t>(65), positions[2], "positions: world at 55+10=65");
+  }
+
+  // Test 62: Multiple punctuation in sequence attach
+  {
+    std::vector<std::string> words = {"word", ".", "\xE2\x80\x9D"};  // word."
+    std::vector<uint16_t> widths = {40, 5, 8};
+    auto positions = calculatePositions(words, widths, 10);
+    runner.expectEq(static_cast<uint16_t>(0), positions[0], "positions: word at 0");
+    runner.expectEq(static_cast<uint16_t>(40), positions[1], "positions: period at 40 (attached)");
+    runner.expectEq(static_cast<uint16_t>(45), positions[2], "positions: quote at 45 (attached)");
+  }
+
+  // Test 63: Real-world dialog pattern
+  // "said" + "'" + "Hello" + "," + "'" + "he" + "replied"
+  {
+    std::vector<std::string> words = {"said", "'", "Hello", ",", "'", "he", "replied"};
+    std::vector<uint16_t> widths = {30, 3, 40, 5, 3, 15, 50};
+    auto positions = calculatePositions(words, widths, 10);
+    // said at 0
+    runner.expectEq(static_cast<uint16_t>(0), positions[0], "dialog: said at 0");
+    // ' attaches to said -> at 30
+    runner.expectEq(static_cast<uint16_t>(30), positions[1], "dialog: quote at 30 (attached)");
+    // Hello after quote+spacing -> 30+3+10=43
+    runner.expectEq(static_cast<uint16_t>(43), positions[2], "dialog: Hello at 43");
+    // , attaches to Hello -> 43+40=83
+    runner.expectEq(static_cast<uint16_t>(83), positions[3], "dialog: comma at 83 (attached)");
+    // ' attaches to comma -> 83+5=88
+    runner.expectEq(static_cast<uint16_t>(88), positions[4], "dialog: end quote at 88 (attached)");
+    // he after quote+spacing -> 88+3+10=101
+    runner.expectEq(static_cast<uint16_t>(101), positions[5], "dialog: he at 101");
+    // replied after he+spacing -> 101+15+10=126
+    runner.expectEq(static_cast<uint16_t>(126), positions[6], "dialog: replied at 126");
   }
 
   return runner.allPassed() ? 0 : 1;

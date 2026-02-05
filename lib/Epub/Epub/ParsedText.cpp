@@ -16,6 +16,39 @@ constexpr float LINE_PENALTY = 50.0f;
 constexpr unsigned char SOFT_HYPHEN_BYTE1 = 0xC2;
 constexpr unsigned char SOFT_HYPHEN_BYTE2 = 0xAD;
 
+// Known attaching punctuation (including UTF-8 sequences)
+const std::vector<std::string> punctuation = {
+    ".",
+    ",",
+    "!",
+    "?",
+    ";",
+    ":",
+    "\"",
+    "'",
+    "\xE2\x80\x99",  // ' (U+2019 right single quote)
+    "\xE2\x80\x9D"   // " (U+201D right double quote)
+};
+
+// Check if a word consists entirely of attaching punctuation
+// These should attach to the previous word without extra spacing
+bool isAttachingPunctuationWord(const std::string& word) {
+  if (word.empty()) return false;
+  size_t pos = 0;
+  while (pos < word.size()) {
+    bool matched = false;
+    for (const auto& p : punctuation) {
+      if (word.compare(pos, p.size(), p) == 0) {
+        pos += p.size();
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return false;
+  }
+  return true;
+}
+
 namespace {
 
 // Find all soft hyphen byte positions in a UTF-8 string
@@ -373,10 +406,19 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   const size_t lastBreakAt = breakIndex > 0 ? lineBreakIndices[breakIndex - 1] : 0;
   const size_t lineWordCount = lineBreak - lastBreakAt;
 
-  // Calculate total word width for this line
+  // Calculate total word width for this line and count actual word gaps
+  // (punctuation that attaches to previous word doesn't count as a gap)
   int lineWordWidthSum = 0;
-  for (size_t i = lastBreakAt; i < lineBreak; i++) {
-    lineWordWidthSum += wordWidths[i];
+  size_t actualGapCount = 0;
+  auto countWordIt = words.begin();
+
+  for (size_t wordIdx = 0; wordIdx < lineWordCount; wordIdx++) {
+    lineWordWidthSum += wordWidths[lastBreakAt + wordIdx];
+    // Count gaps: each word after the first creates a gap, unless it's attaching punctuation
+    if (wordIdx > 0 && !isAttachingPunctuationWord(*countWordIt)) {
+      actualGapCount++;
+    }
+    ++countWordIt;
   }
 
   // Calculate spacing
@@ -385,28 +427,37 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   int spacing = spaceWidth;
   const bool isLastLine = breakIndex == lineBreakIndices.size() - 1;
 
-  if (style == TextBlock::JUSTIFIED && !isLastLine && lineWordCount >= 2) {
-    spacing = spareSpace / (lineWordCount - 1);
+  // For justified text, calculate spacing based on actual gap count
+  if (style == TextBlock::JUSTIFIED && !isLastLine && actualGapCount >= 1) {
+    spacing = spareSpace / static_cast<int>(actualGapCount);
   }
 
   // Calculate initial x position
   uint16_t xpos = 0;
   if (style == TextBlock::RIGHT_ALIGN) {
-    xpos = spareSpace - (lineWordCount - 1) * spaceWidth;
+    xpos = spareSpace - static_cast<int>(actualGapCount) * spaceWidth;
   } else if (style == TextBlock::CENTER_ALIGN) {
-    xpos = (spareSpace - (lineWordCount - 1) * spaceWidth) / 2;
+    xpos = (spareSpace - static_cast<int>(actualGapCount) * spaceWidth) / 2;
   }
 
   // Build WordData vector directly, consuming from front of lists
+  // Punctuation that attaches to the previous word doesn't get space before it
   std::vector<TextBlock::WordData> lineData;
   lineData.reserve(lineWordCount);
 
   auto wordIt = words.begin();
   auto styleIt = wordStyles.begin();
-  for (size_t i = lastBreakAt; i < lineBreak; i++) {
-    const uint16_t currentWordWidth = wordWidths[i];
+
+  for (size_t wordIdx = 0; wordIdx < lineWordCount; wordIdx++) {
+    const uint16_t currentWordWidth = wordWidths[lastBreakAt + wordIdx];
     lineData.push_back({std::move(*wordIt), xpos, *styleIt});
-    xpos += currentWordWidth + spacing;
+
+    // Add spacing after this word, unless the next word is attaching punctuation
+    auto nextWordIt = wordIt;
+    ++nextWordIt;
+    const bool nextIsAttachingPunctuation = wordIdx + 1 < lineWordCount && isAttachingPunctuationWord(*nextWordIt);
+
+    xpos += currentWordWidth + (nextIsAttachingPunctuation ? 0 : spacing);
     ++wordIt;
     ++styleIt;
   }

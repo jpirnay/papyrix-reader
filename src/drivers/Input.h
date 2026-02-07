@@ -29,6 +29,9 @@ class Input {
   // Direct state queries (for hold detection)
   bool isPressed(Button btn) const;
 
+  // Re-read button state after input mapping change to prevent ghost events
+  void resyncState();
+
   // Access underlying input manager (for legacy code during migration)
   MappedInputManager& raw();
 

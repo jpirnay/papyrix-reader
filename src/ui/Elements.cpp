@@ -4,7 +4,13 @@
 #include <cstring>
 #include <string>
 
+#include "core/PapyrixSettings.h"
+
 namespace ui {
+
+static uint8_t frontButtonLayout_ = 0;
+
+void setFrontButtonLayout(uint8_t layout) { frontButtonLayout_ = layout; }
 
 void title(const GfxRenderer& r, const Theme& t, int y, const char* text) {
   r.drawCenteredText(t.readerFontId, y, text, t.primaryTextBlack, EpdFontFamily::BOLD);
@@ -61,12 +67,21 @@ void enumValue(const GfxRenderer& r, const Theme& t, int y, const char* label, c
 }
 
 void buttonBar(const GfxRenderer& r, const Theme& t, const char* b1, const char* b2, const char* b3, const char* b4) {
-  r.drawButtonHints(t.uiFontId, b1, b2, b3, b4, t.primaryTextBlack);
+  if (frontButtonLayout_ == papyrix::Settings::FrontLRBC) {
+    r.drawButtonHints(t.uiFontId, b3, b4, b1, b2, t.primaryTextBlack);
+  } else {
+    r.drawButtonHints(t.uiFontId, b1, b2, b3, b4, t.primaryTextBlack);
+  }
 }
 
 void buttonBar(const GfxRenderer& r, const Theme& t, const ButtonBar& buttons) {
-  r.drawButtonHints(t.uiFontId, buttons.labels[0], buttons.labels[1], buttons.labels[2], buttons.labels[3],
-                    t.primaryTextBlack);
+  if (frontButtonLayout_ == papyrix::Settings::FrontLRBC) {
+    r.drawButtonHints(t.uiFontId, buttons.labels[2], buttons.labels[3], buttons.labels[0], buttons.labels[1],
+                      t.primaryTextBlack);
+  } else {
+    r.drawButtonHints(t.uiFontId, buttons.labels[0], buttons.labels[1], buttons.labels[2], buttons.labels[3],
+                      t.primaryTextBlack);
+  }
 }
 
 void progress(const GfxRenderer& r, const Theme& t, int y, int current, int total) {

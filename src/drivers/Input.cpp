@@ -143,6 +143,18 @@ bool Input::isPressed(Button btn) const {
   return mappedInput.isPressed(mappedBtn);
 }
 
+void Input::resyncState() {
+  currButtonState_ = 0;
+  if (isPressed(Button::Up)) currButtonState_ |= (1 << 0);
+  if (isPressed(Button::Down)) currButtonState_ |= (1 << 1);
+  if (isPressed(Button::Left)) currButtonState_ |= (1 << 2);
+  if (isPressed(Button::Right)) currButtonState_ |= (1 << 3);
+  if (isPressed(Button::Center)) currButtonState_ |= (1 << 4);
+  if (isPressed(Button::Back)) currButtonState_ |= (1 << 5);
+  if (isPressed(Button::Power)) currButtonState_ |= (1 << 6);
+  prevButtonState_ = currButtonState_;
+}
+
 MappedInputManager& Input::raw() { return mappedInput; }
 
 }  // namespace drivers

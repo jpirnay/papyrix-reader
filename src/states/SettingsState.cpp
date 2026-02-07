@@ -295,6 +295,11 @@ void SettingsState::goBack(Core& core) {
       break;
     case SettingsScreen::Device:
       saveDeviceSettings();
+      // Apply button layouts now that we're leaving the screen
+      core.settings.frontButtonLayout = std::min(deviceView_.values[6], uint8_t(Settings::FrontLRBC));
+      core.settings.sideButtonLayout = std::min(deviceView_.values[7], uint8_t(Settings::NextPrev));
+      ui::setFrontButtonLayout(core.settings.frontButtonLayout);
+      core.input.resyncState();
       currentScreen_ = SettingsScreen::Menu;
       menuView_.needsRender = true;
       break;
@@ -544,11 +549,12 @@ void SettingsState::saveDeviceSettings() {
   // Index 5: Sunlight Fading Fix
   settings.sunlightFadingFix = deviceView_.values[5];
 
-  // Index 6: Front Buttons
-  settings.frontButtonLayout = std::min(deviceView_.values[6], uint8_t(Settings::FrontLRBC));
+  // Index 6: Front Buttons - deferred to goBack() on screen exit.
+  // Changing layout while navigating causes ghost button events because the
+  // MappedInputManager remaps physical buttons mid-press.
 
-  // Index 7: Side Buttons
-  settings.sideButtonLayout = std::min(deviceView_.values[7], uint8_t(Settings::NextPrev));
+  // Index 7: Side Buttons - deferred to goBack() on screen exit.
+  // Same as front buttons: changing layout mid-navigation causes ghost events.
 }
 
 void SettingsState::populateSystemInfo() {

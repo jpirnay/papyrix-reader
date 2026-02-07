@@ -316,7 +316,7 @@ void FileListState::render(Core& core) {
 
   // Button hints - "Home" if at root, "Back" if in subfolder
   const char* backLabel = isAtRoot() ? "Home" : "Back";
-  renderer_.drawButtonHints(theme.uiFontId, backLabel, "Open", "", "Delete", theme.primaryTextBlack);
+  ui::buttonBar(renderer_, theme, backLabel, "Open", "", "Delete");
 
   if (firstRender_) {
     renderer_.displayBuffer(EInkDisplay::HALF_REFRESH);

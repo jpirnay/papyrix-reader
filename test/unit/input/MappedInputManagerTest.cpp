@@ -1,7 +1,6 @@
 #include "test_utils.h"
 
 #include <cstdint>
-#include <cstring>
 
 // Minimal InputManager mock
 class InputManager {
@@ -28,13 +27,6 @@ struct Settings {
 
 // Inline button mapping logic from MappedInputManager
 enum class Button { Back, Confirm, Left, Right, Up, Down, Power, PageBack, PageForward };
-
-struct Labels {
-  const char* btn1;
-  const char* btn2;
-  const char* btn3;
-  const char* btn4;
-};
 
 int mapButton(Button button, papyrix::Settings* settings) {
   const auto frontLayout = settings ? static_cast<papyrix::Settings::FrontButtonLayout>(settings->frontButtonLayout)
@@ -76,9 +68,21 @@ int mapButton(Button button, papyrix::Settings* settings) {
           return InputManager::BTN_RIGHT;
       }
     case Button::Up:
-      return InputManager::BTN_UP;
+      switch (sideLayout) {
+        case papyrix::Settings::NextPrev:
+          return InputManager::BTN_DOWN;
+        case papyrix::Settings::PrevNext:
+        default:
+          return InputManager::BTN_UP;
+      }
     case Button::Down:
-      return InputManager::BTN_DOWN;
+      switch (sideLayout) {
+        case papyrix::Settings::NextPrev:
+          return InputManager::BTN_UP;
+        case papyrix::Settings::PrevNext:
+        default:
+          return InputManager::BTN_DOWN;
+      }
     case Button::Power:
       return InputManager::BTN_POWER;
     case Button::PageBack:
@@ -99,20 +103,6 @@ int mapButton(Button button, papyrix::Settings* settings) {
       }
   }
   return InputManager::BTN_BACK;
-}
-
-Labels mapLabels(const char* back, const char* confirm, const char* previous, const char* next,
-                 papyrix::Settings* settings) {
-  const auto layout = settings ? static_cast<papyrix::Settings::FrontButtonLayout>(settings->frontButtonLayout)
-                               : papyrix::Settings::FrontBCLR;
-
-  switch (layout) {
-    case papyrix::Settings::FrontLRBC:
-      return {previous, next, back, confirm};
-    case papyrix::Settings::FrontBCLR:
-    default:
-      return {back, confirm, previous, next};
-  }
 }
 
 int main() {
@@ -171,38 +161,30 @@ int main() {
                     "Combined: PageBack -> BTN_DOWN");
   }
 
+  // === Up/Down remapped by sideLayout ===
+  {
+    papyrix::Settings settings;
+    settings.sideButtonLayout = papyrix::Settings::PrevNext;
+
+    runner.expectEq(InputManager::BTN_UP, mapButton(Button::Up, &settings), "PrevNext: Up -> BTN_UP");
+    runner.expectEq(InputManager::BTN_DOWN, mapButton(Button::Down, &settings), "PrevNext: Down -> BTN_DOWN");
+  }
+
+  {
+    papyrix::Settings settings;
+    settings.sideButtonLayout = papyrix::Settings::NextPrev;
+
+    runner.expectEq(InputManager::BTN_DOWN, mapButton(Button::Up, &settings), "NextPrev: Up -> BTN_DOWN");
+    runner.expectEq(InputManager::BTN_UP, mapButton(Button::Down, &settings), "NextPrev: Down -> BTN_UP");
+  }
+
   // === Non-remapped buttons are unaffected ===
   {
     papyrix::Settings settings;
     settings.frontButtonLayout = papyrix::Settings::FrontLRBC;
+    settings.sideButtonLayout = papyrix::Settings::NextPrev;
 
-    runner.expectEq(InputManager::BTN_UP, mapButton(Button::Up, &settings), "Up always -> BTN_UP");
-    runner.expectEq(InputManager::BTN_DOWN, mapButton(Button::Down, &settings), "Down always -> BTN_DOWN");
     runner.expectEq(InputManager::BTN_POWER, mapButton(Button::Power, &settings), "Power always -> BTN_POWER");
-  }
-
-  // === Label mapping: BCLR ===
-  {
-    papyrix::Settings settings;
-    settings.frontButtonLayout = papyrix::Settings::FrontBCLR;
-
-    auto labels = mapLabels("Back", "OK", "Prev", "Next", &settings);
-    runner.expectTrue(strcmp(labels.btn1, "Back") == 0, "BCLR labels: btn1 = Back");
-    runner.expectTrue(strcmp(labels.btn2, "OK") == 0, "BCLR labels: btn2 = OK");
-    runner.expectTrue(strcmp(labels.btn3, "Prev") == 0, "BCLR labels: btn3 = Prev");
-    runner.expectTrue(strcmp(labels.btn4, "Next") == 0, "BCLR labels: btn4 = Next");
-  }
-
-  // === Label mapping: LRBC ===
-  {
-    papyrix::Settings settings;
-    settings.frontButtonLayout = papyrix::Settings::FrontLRBC;
-
-    auto labels = mapLabels("Back", "OK", "Prev", "Next", &settings);
-    runner.expectTrue(strcmp(labels.btn1, "Prev") == 0, "LRBC labels: btn1 = Prev");
-    runner.expectTrue(strcmp(labels.btn2, "Next") == 0, "LRBC labels: btn2 = Next");
-    runner.expectTrue(strcmp(labels.btn3, "Back") == 0, "LRBC labels: btn3 = Back");
-    runner.expectTrue(strcmp(labels.btn4, "OK") == 0, "LRBC labels: btn4 = OK");
   }
 
   // === nullptr settings defaults to BCLR/PrevNext ===
@@ -210,13 +192,11 @@ int main() {
     runner.expectEq(InputManager::BTN_BACK, mapButton(Button::Back, nullptr), "nullptr: Back -> BTN_BACK");
     runner.expectEq(InputManager::BTN_CONFIRM, mapButton(Button::Confirm, nullptr),
                     "nullptr: Confirm -> BTN_CONFIRM");
+    runner.expectEq(InputManager::BTN_UP, mapButton(Button::Up, nullptr), "nullptr: Up -> BTN_UP");
+    runner.expectEq(InputManager::BTN_DOWN, mapButton(Button::Down, nullptr), "nullptr: Down -> BTN_DOWN");
     runner.expectEq(InputManager::BTN_UP, mapButton(Button::PageBack, nullptr), "nullptr: PageBack -> BTN_UP");
     runner.expectEq(InputManager::BTN_DOWN, mapButton(Button::PageForward, nullptr),
                     "nullptr: PageForward -> BTN_DOWN");
-
-    auto labels = mapLabels("Back", "OK", "Prev", "Next", nullptr);
-    runner.expectTrue(strcmp(labels.btn1, "Back") == 0, "nullptr labels: btn1 = Back");
-    runner.expectTrue(strcmp(labels.btn2, "OK") == 0, "nullptr labels: btn2 = OK");
   }
 
   runner.printSummary();

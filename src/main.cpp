@@ -33,6 +33,7 @@
 #include "ThemeManager.h"
 #include "config.h"
 #include "content/ContentTypes.h"
+#include "ui/Elements.h"
 
 // New refactored core system
 #include "core/BootMode.h"
@@ -388,6 +389,7 @@ void initUIMode() {
 
   Serial.printf("[%lu] [CORE] State machine starting (UI mode)\n", millis());
   mappedInputManager.setSettings(&papyrix::core.settings);
+  ui::setFrontButtonLayout(papyrix::core.settings.frontButtonLayout);
 
   // Determine initial state - check for return from reader mode
   papyrix::StateId initialState = papyrix::StateId::Home;
@@ -451,6 +453,7 @@ void initReaderMode() {
 
   Serial.printf("[%lu] [CORE] State machine starting (READER mode)\n", millis());
   mappedInputManager.setSettings(&papyrix::core.settings);
+  ui::setFrontButtonLayout(papyrix::core.settings.frontButtonLayout);
 
   if (transition.bookPath[0] != '\0') {
     // Copy path to shared buffer for ReaderState to consume

@@ -42,9 +42,21 @@ decltype(InputManager::BTN_BACK) MappedInputManager::mapButton(const Button butt
           return InputManager::BTN_RIGHT;
       }
     case Button::Up:
-      return InputManager::BTN_UP;
+      switch (sideLayout) {
+        case papyrix::Settings::NextPrev:
+          return InputManager::BTN_DOWN;
+        case papyrix::Settings::PrevNext:
+        default:
+          return InputManager::BTN_UP;
+      }
     case Button::Down:
-      return InputManager::BTN_DOWN;
+      switch (sideLayout) {
+        case papyrix::Settings::NextPrev:
+          return InputManager::BTN_UP;
+        case papyrix::Settings::PrevNext:
+        default:
+          return InputManager::BTN_DOWN;
+      }
     case Button::Power:
       return InputManager::BTN_POWER;
     case Button::PageBack:
@@ -79,17 +91,3 @@ bool MappedInputManager::wasAnyPressed() const { return inputManager.wasAnyPress
 bool MappedInputManager::wasAnyReleased() const { return inputManager.wasAnyReleased(); }
 
 unsigned long MappedInputManager::getHeldTime() const { return inputManager.getHeldTime(); }
-
-MappedInputManager::Labels MappedInputManager::mapLabels(const char* back, const char* confirm, const char* previous,
-                                                         const char* next) const {
-  const auto layout = settings_ ? static_cast<papyrix::Settings::FrontButtonLayout>(settings_->frontButtonLayout)
-                                : papyrix::Settings::FrontBCLR;
-
-  switch (layout) {
-    case papyrix::Settings::FrontLRBC:
-      return {previous, next, back, confirm};
-    case papyrix::Settings::FrontBCLR:
-    default:
-      return {back, confirm, previous, next};
-  }
-}

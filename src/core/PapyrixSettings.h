@@ -65,7 +65,7 @@ struct Settings {
   uint8_t textLayout = LayoutStandard;
   uint8_t shortPwrBtn = PowerIgnore;
   uint8_t orientation = Portrait;
-  uint8_t fontSize = FontSmall;
+  uint8_t fontSize = FontMedium;
   uint8_t pagesPerRefresh = PPR15;
   uint8_t sideButtonLayout = PrevNext;
   uint8_t autoSleepMinutes = Sleep10Min;

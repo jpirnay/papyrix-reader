@@ -211,6 +211,7 @@ void waitForPowerRelease() {
 
 void setupDisplayAndFonts() {
   einkDisplay.begin();
+  renderer.begin();
   Serial.printf("[%lu] [   ] Display initialized\n", millis());
   renderer.insertFont(READER_FONT_ID_XSMALL, readerXSmallFontFamily);
   renderer.insertFont(READER_FONT_ID, readerFontFamily);

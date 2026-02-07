@@ -37,6 +37,7 @@ class GfxRenderer {
   EInkDisplay& einkDisplay;
   RenderMode renderMode;
   Orientation orientation;
+  uint8_t* frameBuffer = nullptr;
   uint8_t* bwBufferChunks[BW_BUFFER_NUM_CHUNKS] = {nullptr};
   std::map<int, EpdFontFamily> fontMap;
   // Streaming fonts: [fontId] -> array of [REGULAR, BOLD, ITALIC] (BOLD_ITALIC uses BOLD)
@@ -81,7 +82,6 @@ class GfxRenderer {
   void renderExternalGlyph(uint32_t cp, int* x, int y, bool pixelState) const;
   int getExternalGlyphWidth(uint32_t cp) const;
   void freeBwBufferChunks();
-  void rotateCoordinates(int x, int y, int* rotatedX, int* rotatedY) const;
 
  public:
   explicit GfxRenderer(EInkDisplay& einkDisplay) : einkDisplay(einkDisplay), renderMode(BW), orientation(Portrait) {
@@ -95,6 +95,7 @@ class GfxRenderer {
   static constexpr int VIEWABLE_MARGIN_LEFT = 3;
 
   // Setup
+  void begin();
   void insertFont(int fontId, EpdFontFamily font);
   void removeFont(int fontId);
   void clearWidthCache() { wordWidthCache.clear(); }

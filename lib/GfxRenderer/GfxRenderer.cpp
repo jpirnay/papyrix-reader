@@ -6,6 +6,8 @@
 #include <ThaiShaper.h>
 #include <Utf8.h>
 
+#include <cassert>
+
 void GfxRenderer::insertFont(const int fontId, EpdFontFamily font) { fontMap.insert({fontId, font}); }
 
 void GfxRenderer::removeFont(const int fontId) {
@@ -14,29 +16,30 @@ void GfxRenderer::removeFont(const int fontId) {
   wordWidthCache.clear();
 }
 
-void GfxRenderer::rotateCoordinates(const int x, const int y, int* rotatedX, int* rotatedY) const {
+static inline void rotateCoordinates(const GfxRenderer::Orientation orientation, const int x, const int y,
+                                     int* rotatedX, int* rotatedY) {
   switch (orientation) {
-    case Portrait: {
+    case GfxRenderer::Portrait: {
       // Logical portrait (480x800) → panel (800x480)
       // Rotation: 90 degrees clockwise
       *rotatedX = y;
       *rotatedY = EInkDisplay::DISPLAY_HEIGHT - 1 - x;
       break;
     }
-    case LandscapeClockwise: {
+    case GfxRenderer::LandscapeClockwise: {
       // Logical landscape (800x480) rotated 180 degrees (swap top/bottom and left/right)
       *rotatedX = EInkDisplay::DISPLAY_WIDTH - 1 - x;
       *rotatedY = EInkDisplay::DISPLAY_HEIGHT - 1 - y;
       break;
     }
-    case PortraitInverted: {
+    case GfxRenderer::PortraitInverted: {
       // Logical portrait (480x800) → panel (800x480)
       // Rotation: 90 degrees counter-clockwise
       *rotatedX = EInkDisplay::DISPLAY_WIDTH - 1 - y;
       *rotatedY = x;
       break;
     }
-    case LandscapeCounterClockwise: {
+    case GfxRenderer::LandscapeCounterClockwise: {
       // Logical landscape (800x480) aligned with panel orientation
       *rotatedX = x;
       *rotatedY = y;
@@ -45,18 +48,15 @@ void GfxRenderer::rotateCoordinates(const int x, const int y, int* rotatedX, int
   }
 }
 
+void GfxRenderer::begin() {
+  frameBuffer = einkDisplay.getFrameBuffer();
+  assert(frameBuffer && "GfxRenderer::begin() called before display.begin()");
+}
+
 void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
-  uint8_t* frameBuffer = einkDisplay.getFrameBuffer();
-
-  // Early return if no framebuffer is set
-  if (!frameBuffer) {
-    Serial.printf("[%lu] [GFX] !! No framebuffer\n", millis());
-    return;
-  }
-
   int rotatedX = 0;
   int rotatedY = 0;
-  rotateCoordinates(x, y, &rotatedX, &rotatedY);
+  rotateCoordinates(orientation, x, y, &rotatedX, &rotatedY);
 
   // Bounds checking against physical panel dimensions
   if (rotatedX < 0 || rotatedX >= EInkDisplay::DISPLAY_WIDTH || rotatedY < 0 ||
@@ -215,7 +215,7 @@ void GfxRenderer::drawImage(const uint8_t bitmap[], const int x, const int y, co
   // TODO: Rotate bits
   int rotatedX = 0;
   int rotatedY = 0;
-  rotateCoordinates(x, y, &rotatedX, &rotatedY);
+  rotateCoordinates(orientation, x, y, &rotatedX, &rotatedY);
   einkDisplay.drawImage(bitmap, rotatedX, rotatedY, width, height);
 }
 
@@ -286,11 +286,15 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
   }
 }
 
-void GfxRenderer::clearScreen(const uint8_t color) const { einkDisplay.clearScreen(color); }
+static unsigned long renderStartMs = 0;
+
+void GfxRenderer::clearScreen(const uint8_t color) const {
+  renderStartMs = millis();
+  einkDisplay.clearScreen(color);
+}
 
 void GfxRenderer::clearArea(const int x, const int y, const int width, const int height, const uint8_t color) const {
-  uint8_t* frameBuffer = einkDisplay.getFrameBuffer();
-  if (!frameBuffer || width <= 0 || height <= 0) {
+  if (width <= 0 || height <= 0) {
     return;
   }
 
@@ -319,17 +323,16 @@ void GfxRenderer::clearArea(const int x, const int y, const int width, const int
 }
 
 void GfxRenderer::invertScreen() const {
-  uint8_t* buffer = einkDisplay.getFrameBuffer();
-  if (!buffer) {
-    Serial.printf("[%lu] [GFX] !! No framebuffer in invertScreen\n", millis());
-    return;
-  }
   for (int i = 0; i < EInkDisplay::BUFFER_SIZE; i++) {
-    buffer[i] = ~buffer[i];
+    frameBuffer[i] = ~frameBuffer[i];
   }
 }
 
 void GfxRenderer::displayBuffer(const EInkDisplay::RefreshMode refreshMode, bool turnOffScreen) const {
+  if (renderStartMs > 0) {
+    Serial.printf("[%lu] [GFX] Render took %lu ms\n", millis(), millis() - renderStartMs);
+    renderStartMs = 0;
+  }
   einkDisplay.displayBuffer(refreshMode, turnOffScreen);
 }
 
@@ -606,15 +609,15 @@ void GfxRenderer::drawButtonHints(const int fontId, const char* btn1, const char
   }
 }
 
-uint8_t* GfxRenderer::getFrameBuffer() const { return einkDisplay.getFrameBuffer(); }
+uint8_t* GfxRenderer::getFrameBuffer() const { return frameBuffer; }
 
 size_t GfxRenderer::getBufferSize() { return EInkDisplay::BUFFER_SIZE; }
 
 void GfxRenderer::grayscaleRevert() const { einkDisplay.grayscaleRevert(); }
 
-void GfxRenderer::copyGrayscaleLsbBuffers() const { einkDisplay.copyGrayscaleLsbBuffers(einkDisplay.getFrameBuffer()); }
+void GfxRenderer::copyGrayscaleLsbBuffers() const { einkDisplay.copyGrayscaleLsbBuffers(frameBuffer); }
 
-void GfxRenderer::copyGrayscaleMsbBuffers() const { einkDisplay.copyGrayscaleMsbBuffers(einkDisplay.getFrameBuffer()); }
+void GfxRenderer::copyGrayscaleMsbBuffers() const { einkDisplay.copyGrayscaleMsbBuffers(frameBuffer); }
 
 void GfxRenderer::displayGrayBuffer(bool turnOffScreen) const { einkDisplay.displayGrayBuffer(turnOffScreen); }
 
@@ -634,12 +637,6 @@ void GfxRenderer::freeBwBufferChunks() {
  * Returns true if buffer was stored successfully, false if allocation failed.
  */
 bool GfxRenderer::storeBwBuffer() {
-  const uint8_t* frameBuffer = einkDisplay.getFrameBuffer();
-  if (!frameBuffer) {
-    Serial.printf("[%lu] [GFX] !! No framebuffer in storeBwBuffer\n", millis());
-    return false;
-  }
-
   // Allocate and copy each chunk
   for (size_t i = 0; i < BW_BUFFER_NUM_CHUNKS; i++) {
     // Check if any chunks are already allocated
@@ -689,13 +686,6 @@ void GfxRenderer::restoreBwBuffer() {
     return;
   }
 
-  uint8_t* frameBuffer = einkDisplay.getFrameBuffer();
-  if (!frameBuffer) {
-    Serial.printf("[%lu] [GFX] !! No framebuffer in restoreBwBuffer\n", millis());
-    freeBwBufferChunks();
-    return;
-  }
-
   for (size_t i = 0; i < BW_BUFFER_NUM_CHUNKS; i++) {
     // Check if chunk is missing
     if (!bwBufferChunks[i]) {
@@ -718,12 +708,7 @@ void GfxRenderer::restoreBwBuffer() {
  * Cleanup grayscale buffers using the current frame buffer.
  * Use this when BW buffer was re-rendered instead of stored/restored.
  */
-void GfxRenderer::cleanupGrayscaleWithFrameBuffer() const {
-  uint8_t* frameBuffer = einkDisplay.getFrameBuffer();
-  if (frameBuffer) {
-    einkDisplay.cleanupGrayscaleBuffers(frameBuffer);
-  }
-}
+void GfxRenderer::cleanupGrayscaleWithFrameBuffer() const { einkDisplay.cleanupGrayscaleBuffers(frameBuffer); }
 
 void GfxRenderer::renderChar(const EpdFontFamily& fontFamily, const uint32_t cp, int* x, const int* y,
                              const bool pixelState, const EpdFontFamily::Style style, const int fontId) const {

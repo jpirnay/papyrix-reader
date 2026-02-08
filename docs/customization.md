@@ -24,7 +24,7 @@ When you first use the device, default `light.theme` and `dark.theme` files are 
 ### Creating a Custom Theme
 
 1. Copy [example.theme](example.theme) or an existing theme file from your device
-2. Rename it (e.g., `my-custom.theme`)
+2. Rename it (e.g., `my-custom.theme`) — use only letters, digits, hyphens, and underscores
 3. Edit the file with any text editor
 4. Place it in `/config/themes/` on your SD card
 5. Restart the device and select your theme in **Settings > Reader > Theme**
@@ -33,6 +33,7 @@ When you first use the device, default `light.theme` and `dark.theme` files are 
 
 - **Maximum themes**: 16 themes can be displayed in the Settings UI
 - **Theme name length**: Maximum 31 characters
+- **Filename format**: Theme filenames must contain only letters, digits, hyphens, and underscores (e.g., `my-custom.theme`, `dark_v2.theme`). Files with other characters are ignored.
 - Themes beyond the limit are ignored with a log warning (alphabetical order by filename)
 - If a theme file is invalid or fails to parse, the device skips it and logs a warning
 

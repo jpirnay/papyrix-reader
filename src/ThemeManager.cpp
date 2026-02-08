@@ -231,6 +231,16 @@ std::vector<std::string> ThemeManager::listAvailableThemes(bool forceRefresh) {
     return themes;
   }
 
+  auto isValidThemeName = [](const char* name, size_t len) -> bool {
+    for (size_t i = 0; i < len; i++) {
+      char c = name[i];
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) {
+        return false;
+      }
+    }
+    return len > 0;
+  };
+
   FsFile entry;
   while (entry.openNext(&dir, O_RDONLY)) {
     if (!entry.isDirectory()) {
@@ -252,6 +262,12 @@ std::vector<std::string> ThemeManager::listAvailableThemes(bool forceRefresh) {
 
         strncpy(themeNameBuf, name, nameLen);
         themeNameBuf[nameLen] = '\0';
+
+        if (!isValidThemeName(themeNameBuf, nameLen)) {
+          Serial.printf("[THEME] Skipping theme with invalid name: %s\n", name);
+          entry.close();
+          continue;
+        }
 
         // Add if not already in list (avoid duplicating light/dark)
         if (!std::any_of(themes.begin(), themes.end(), [&](const std::string& t) { return t == themeNameBuf; })) {

@@ -46,6 +46,13 @@ bool CssParser::parseFile(const char* filepath) {
     return false;
   }
 
+  const size_t fileSize = file.size();
+  if (fileSize > MAX_CSS_FILE_SIZE) {
+    Serial.printf("[%lu] [CSS] File too large (%zu bytes): %s\n", millis(), fileSize, filepath);
+    file.close();
+    return false;
+  }
+
   std::string selector;
   std::string properties;
   bool inComment = false;
@@ -124,7 +131,9 @@ bool CssParser::parseFile(const char* filepath) {
         continue;
       }
 
-      selector += c;
+      if (selector.size() < MAX_CSS_SELECTOR_LENGTH) {
+        selector += c;
+      }
     } else {
       // Inside declaration block
       if (!inString && (c == '"' || c == '\'')) {
@@ -172,6 +181,9 @@ bool CssParser::parseFile(const char* filepath) {
     }
   }
 
+  if (styleMap_.size() >= MAX_CSS_RULES) {
+    Serial.printf("[%lu] [CSS] Rule limit reached (%zu max)\n", millis(), MAX_CSS_RULES);
+  }
   file.close();
   Serial.printf("[%lu] [CSS] Loaded %d style rules from %s\n", millis(), static_cast<int>(styleMap_.size()), filepath);
   return true;
@@ -285,7 +297,7 @@ void CssParser::parseRule(const std::string& selector, const std::string& proper
         auto it = styleMap_.find(singleSelector);
         if (it != styleMap_.end()) {
           it->second.merge(style);
-        } else {
+        } else if (styleMap_.size() < MAX_CSS_RULES) {
           styleMap_[singleSelector] = style;
         }
       }

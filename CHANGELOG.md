@@ -1,5 +1,127 @@
 
 
+## v1.4.0 (2026-02-09)
+
+*  Add Arabic text support with shaping, RTL layout, and CSS direction. Issue #33 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update docs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  TOC: Use current reader font instead of theme default for chapter list [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update docs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Reader: Fix crash on exitToUI when background cache task times out [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Fix data URI buffer sizing, parse error recovery, and add no-progress guard. Issue #34 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Skip tiny decorative images (≤3px) during chapter parsing. Issue #34 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Add abort support to image converters and increase cache task stack [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## monitor-v0.1.0 (2026-02-08)
+
+*  Add CI workflow and docs for serial monitor tool [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.3.1 (2026-02-08)
+
+*  ThemeManager: Validate theme filenames to reject special characters [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.3.0 (2026-02-08)
+
+*  Epub: Give tall images dedicated pages with vertical centering. Issue #30 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  FileList: Add natural sort for file and directory names [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  WebServer: Buffer file uploads with 4KB write coalescing [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.2.3 (2026-02-08)
+
+*  Change default font size from Small to Normal [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Track parser abort state to correctly resume partially parsed chapters. Issue #34 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  GfxRenderer: Cache framebuffer pointer and make rotateCoordinates static [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Update tests [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.2.2 (2026-02-08)
+
+*  Fix wakeup verification after full power cycle by loading settings before button check. Issue #17 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Defer emergency text split outside XML callback to prevent stack overflow. Issue #35 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.2.1 (2026-02-07)
+
+*  Fix power button held-time tracking across slow loops and add short-press page turn. Issue #32 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.2.0 (2026-02-07)
+
+*  Move front button layout from theme to settings, add side button settings UI. Issue #31, #24 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix power button wakeup detection for USB-connected and standalone modes [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add side button remapping and defer button layout changes until settings exit [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.13 (2026-02-06)
+
+*  Add XSmall (12pt) font size option with settings migration. Issue #15. [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  JpegToBmpConverter: Switch to contain-mode scaling and add tests. Issue #30 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  TOC: Use reader font for non-XTC content to support non-Latin glyphs [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ChapterHtmlSlimParser: Skip aria-hidden anchors and add parsing tests [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ParsedText: Attach punctuation to preceding word without extra spacing [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Enable LTO for smaller binary size [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  SettingsViews: Fix font size option count from 3 to 4 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix XSmall default font [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Rewrite font conversion from Node.js to Python, standardize font naming, and update example fonts/themes [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.11 (2026-02-05)
+
+*  Add line spacing setting with compact/normal/relaxed/large presets. Issue #23. [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  GfxRenderer: Add multi-style support for streaming fonts. Issue #15 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Skip custom font loading for XTC content to save memory. Issue #21 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Strip embedded data URIs from EPUB HTML to prevent expat OOM. Issue #28 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.10 (2026-02-04)
+
+*  Add XTC flatPage navigation path and unit tests for ReaderNavigation. Fix issue #20. [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*   Add streaming font system with LRU cache for memory efficient custom fonts. Fix issue #21. [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.9 (2026-02-02)
+
+*  Fix coverDithering option and expand sunlightFadingFix range [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add unit tests [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Use BT.601 coefficients for RGB to grayscale conversion [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Add quick cover preview mode with LUT-based RGB-to-gray conversion [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  JpegToBmp: Add detection for arithmetic-coded JPEG (SOF9) [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  BitmapHelpers: Add 1-bit BMP support for thumbnail scaling [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Restore HTML pages for web-based file manager interface [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Hide 'sleep' folder from file browser [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix short power button press ignored on wake-up [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.8 (2026-01-31)
+
+*  Add AsyncTask lib with BackgroundTask for safe FreeRTOS task cancellation [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Add heuristic cover detection for common file paths [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.1.7 (2026-02-01)
+
+*  Update CHANGELOG [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Remove cumulative size tracking for page-based progress [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fix reader state transitions and improve error handling for content loading and settings parsing [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Add magic signature and bounds checks for corrupted files [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v1.1.6 (2026-01-31)
 
 *  Epub: Add better deserialization with checked reads and truncation limits [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]

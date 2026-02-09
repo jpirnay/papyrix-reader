@@ -70,7 +70,7 @@ void render(const GfxRenderer& r, const Theme& t, const WifiListView& v) {
 
   if (v.scanning) {
     const int centerY = r.getScreenHeight() / 2;
-    centeredText(r, t, centerY, "Scanning...");
+    centeredText(r, t, centerY, v.statusText);
   } else if (v.networkCount == 0) {
     const int centerY = r.getScreenHeight() / 2;
     centeredText(r, t, centerY, "No networks found");

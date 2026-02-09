@@ -15,6 +15,9 @@ Result<void> Network::init() {
   }
 
   WiFi.mode(WIFI_STA);
+  delay(100);         // Allow WiFi task to fully start
+  WiFi.scanDelete();  // Clear stale scan state from prior session
+
   initialized_ = true;
   connected_ = false;
   apMode_ = false;
@@ -73,6 +76,10 @@ Result<void> Network::connect(const char* ssid, const char* password) {
 void Network::disconnect() {
   if (connected_) {
     WiFi.disconnect();
+    uint32_t start = millis();
+    while (WiFi.status() == WL_CONNECTED && millis() - start < 3000) {
+      delay(10);
+    }
     connected_ = false;
     Serial.println("[NET] Disconnected");
   }

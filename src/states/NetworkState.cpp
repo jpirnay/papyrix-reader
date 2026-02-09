@@ -46,6 +46,8 @@ void NetworkState::enter(Core& core) {
   goBack_ = false;
   passwordJustEntered_ = false;
   goCalibreSync_ = false;
+  scanRetryCount_ = 0;
+  scanRetryAt_ = 0;
   selectedSSID_[0] = '\0';
 
   // Load saved credentials
@@ -70,19 +72,43 @@ StateTransition NetworkState::update(Core& core) {
     server_->handleClient();
   }
 
-  // Check for scan completion
-  if (currentScreen_ == NetworkScreen::WifiList && wifiListView_.scanning) {
+  // Check for deferred scan retry
+  if (scanRetryAt_ != 0 && millis() >= scanRetryAt_) {
+    scanRetryAt_ = 0;
+    if (currentScreen_ != NetworkScreen::WifiList) {
+      scanRetryCount_ = 0;
+    } else if (core.network.startScan().ok()) {
+      wifiListView_.setScanning(true, "Scanning...");
+      needsRender_ = true;
+    } else {
+      wifiListView_.setScanning(false);
+      needsRender_ = true;
+    }
+  }
+
+  // Check for scan completion (skip while retry is pending)
+  if (currentScreen_ == NetworkScreen::WifiList && wifiListView_.scanning && scanRetryAt_ == 0) {
     if (core.network.isScanComplete()) {
-      wifiListView_.clear();
       drivers::WifiNetwork networks[ui::WifiListView::MAX_NETWORKS];
       int count = core.network.getScanResults(networks, ui::WifiListView::MAX_NETWORKS);
 
+      if (count == 0 && scanRetryCount_ < MAX_SCAN_RETRIES) {
+        scanRetryCount_++;
+        Serial.printf("[NET-STATE] Scan returned 0 results, retry %d/%d\n", scanRetryCount_, MAX_SCAN_RETRIES);
+        wifiListView_.setScanning(true, "Initializing WiFi...");
+        scanRetryAt_ = millis() + 500;
+        needsRender_ = true;
+        return StateTransition::stay(StateId::Network);
+      }
+
+      wifiListView_.clear();
       for (int i = 0; i < count; i++) {
         // Convert RSSI to percentage (roughly -100 to -30 dBm -> 0-100%)
         int signal = constrain(map(networks[i].rssi, -100, -30, 0, 100), 0, 100);
         wifiListView_.addNetwork(networks[i].ssid, signal, networks[i].secured);
       }
 
+      scanRetryCount_ = 0;
       wifiListView_.setScanning(false);
       needsRender_ = true;
     }
@@ -266,7 +292,6 @@ void NetworkState::handleWifiList(Core& core, Button button) {
     case Button::Left:
     case Button::Back:
       if (wifiListView_.buttons.isActive(0)) {
-        core.network.shutdown();
         currentScreen_ = NetworkScreen::ModeSelect;
         modeView_.needsRender = true;
         needsRender_ = true;
@@ -413,8 +438,10 @@ void NetworkState::handleServerRunning(Core& core, Button button) {
 void NetworkState::startWifiScan(Core& core) {
   Serial.println("[NET-STATE] Starting WiFi scan");
 
+  scanRetryCount_ = 0;
+  scanRetryAt_ = 0;
   wifiListView_.clear();
-  wifiListView_.setScanning(true);
+  wifiListView_.setScanning(true, "Scanning...");
 
   auto result = core.network.startScan();
   if (!result.ok()) {

@@ -61,6 +61,7 @@ struct WifiListView {
   uint8_t selected = 0;
   uint8_t page = 0;
   bool scanning = false;
+  char statusText[32] = "Scanning...";
   bool needsRender = true;
 
   void clear() {
@@ -82,8 +83,10 @@ struct WifiListView {
     return false;
   }
 
-  void setScanning(bool s) {
+  void setScanning(bool s, const char* text = "Scanning...") {
     scanning = s;
+    strncpy(statusText, text, sizeof(statusText) - 1);
+    statusText[sizeof(statusText) - 1] = '\0';
     needsRender = true;
   }
 
@@ -105,7 +108,7 @@ struct WifiListView {
   }
 
   void moveDown() {
-    if (selected < networkCount - 1) {
+    if (networkCount > 0 && selected < networkCount - 1) {
       selected++;
       if (selected >= getPageEnd()) {
         page++;

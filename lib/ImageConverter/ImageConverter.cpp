@@ -15,13 +15,14 @@ class JpegImageConverter : public ImageConverter {
     if (config.quickMode) {
       return JpegToBmpConverter::jpegFileToBmpStreamQuick(input, output, config.maxWidth, config.maxHeight);
     }
-    if (config.maxWidth == 480 && config.maxHeight == 800) {
+    if (config.maxWidth == 480 && config.maxHeight == 800 && !config.shouldAbort) {
       return config.oneBit ? JpegToBmpConverter::jpegFileTo1BitBmpStream(input, output)
                            : JpegToBmpConverter::jpegFileToBmpStream(input, output);
     }
     return config.oneBit
                ? JpegToBmpConverter::jpegFileTo1BitBmpStreamWithSize(input, output, config.maxWidth, config.maxHeight)
-               : JpegToBmpConverter::jpegFileToBmpStreamWithSize(input, output, config.maxWidth, config.maxHeight);
+               : JpegToBmpConverter::jpegFileToBmpStreamWithSize(input, output, config.maxWidth, config.maxHeight,
+                                                                 config.shouldAbort);
   }
 
   const char* formatName() const override { return "JPEG"; }
@@ -37,7 +38,8 @@ class PngImageConverter : public ImageConverter {
     // Note: PNG converter always produces 2-bit output. Unlike JPEG, PNG does not support
     // 1-bit dithering (oneBit flag is ignored). PNG thumbnails will be slightly larger but
     // render at the same speed since the display hardware handles both formats equally.
-    return PngToBmpConverter::pngFileToBmpStreamWithSize(input, output, config.maxWidth, config.maxHeight);
+    return PngToBmpConverter::pngFileToBmpStreamWithSize(input, output, config.maxWidth, config.maxHeight,
+                                                         config.shouldAbort);
   }
 
   const char* formatName() const override { return "PNG"; }

@@ -24,7 +24,7 @@
 
 namespace papyrix {
 
-static constexpr int kCacheTaskStackSize = 8192;
+static constexpr int kCacheTaskStackSize = 12288;
 static constexpr int kCacheTaskStopTimeoutMs = 10000;  // 10s - generous for slow SD operations
 
 namespace {

@@ -80,9 +80,11 @@ struct PngContext {
   bool headerWritten;
   bool quickMode;   // Fast preview: simple threshold instead of dithering
   bool initFailed;  // Set when allocation fails in pngInitCallback
+  bool aborted;
   int currentSrcY;
   int currentOutY;
   uint32_t nextOutY_srcStart;
+  const std::function<bool()>* shouldAbort;
 
   // Row buffers
   uint8_t* srcRowBuffer;  // Source row grayscale
@@ -96,7 +98,13 @@ struct PngContext {
 
 void pngDrawCallback(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]) {
   auto* ctx = static_cast<PngContext*>(pngle_get_user_data(pngle));
-  if (!ctx || ctx->initFailed || !ctx->srcRowBuffer) return;
+  if (!ctx || ctx->initFailed || ctx->aborted || !ctx->srcRowBuffer) return;
+
+  // Check abort at start of each row
+  if (x == 0 && ctx->shouldAbort && *ctx->shouldAbort && (*ctx->shouldAbort)()) {
+    ctx->aborted = true;
+    return;
+  }
 
   // Convert to grayscale using LUT
   const uint8_t gray = rgbToGray(rgba[0], rgba[1], rgba[2]);
@@ -279,8 +287,8 @@ void pngInitCallback(pngle_t* pngle, uint32_t w, uint32_t h) {
   ctx->headerWritten = true;
 }
 
-bool pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOut, int targetMaxWidth, int targetMaxHeight,
-                                bool quickMode) {
+bool pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOut, int targetMaxWidth, int targetMaxHeight, bool quickMode,
+                                const std::function<bool()>& shouldAbort = nullptr) {
   Serial.printf("[%lu] [PNG] Converting PNG to BMP (target: %dx%d)%s\n", millis(), targetMaxWidth, targetMaxHeight,
                 quickMode ? " [QUICK]" : "");
 
@@ -297,6 +305,8 @@ bool pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOut, int targetMaxWid
   ctx.targetMaxHeight = targetMaxHeight;
   ctx.headerWritten = false;
   ctx.quickMode = quickMode;
+  ctx.aborted = false;
+  ctx.shouldAbort = &shouldAbort;
 
   pngle_set_user_data(pngle, &ctx);
   pngle_set_init_callback(pngle, pngInitCallback);
@@ -308,6 +318,11 @@ bool pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOut, int targetMaxWid
   bool success = true;
 
   while ((bytesRead = pngFile.read(buffer, sizeof(buffer))) > 0) {
+    if (ctx.aborted) {
+      Serial.printf("[%lu] [PNG] Abort requested during PNG conversion\n", millis());
+      success = false;
+      break;
+    }
     int fed = pngle_feed(pngle, buffer, bytesRead);
     if (fed < 0) {
       Serial.printf("[%lu] [PNG] pngle_feed error: %s\n", millis(), pngle_error(pngle));
@@ -336,8 +351,8 @@ bool pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOut, int targetMaxWid
 }  // namespace
 
 bool PngToBmpConverter::pngFileToBmpStreamWithSize(FsFile& pngFile, Print& bmpOut, int targetMaxWidth,
-                                                   int targetMaxHeight) {
-  return pngFileToBmpStreamInternal(pngFile, bmpOut, targetMaxWidth, targetMaxHeight, false);
+                                                   int targetMaxHeight, const std::function<bool()>& shouldAbort) {
+  return pngFileToBmpStreamInternal(pngFile, bmpOut, targetMaxWidth, targetMaxHeight, false, shouldAbort);
 }
 
 bool PngToBmpConverter::pngFileToBmpStreamQuick(FsFile& pngFile, Print& bmpOut, int targetMaxWidth,

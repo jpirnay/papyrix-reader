@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
 class FsFile;
@@ -11,6 +12,7 @@ struct ImageConvertConfig {
   bool oneBit = false;
   bool quickMode = false;  // Fast preview: simple threshold instead of dithering
   const char* logTag = "IMG";
+  std::function<bool()> shouldAbort = nullptr;
 };
 
 class ImageConverter {

@@ -118,7 +118,16 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
     // Try to cache and display the image if we have image support configured
     if (!srcAttr.empty() && self->readItemFn && !self->imageCachePath.empty()) {
+      // Check abort before and after image caching (conversion can take 10+ seconds for large JPEGs)
+      if (self->externalAbortCallback_ && self->externalAbortCallback_()) {
+        self->depth += 1;
+        return;
+      }
       std::string cachedPath = self->cacheImage(srcAttr);
+      if (self->externalAbortCallback_ && self->externalAbortCallback_()) {
+        self->depth += 1;
+        return;
+      }
       if (!cachedPath.empty()) {
         // Read image dimensions from cached BMP
         FsFile bmpFile;
@@ -625,6 +634,12 @@ void ChapterHtmlSlimParser::makePages() {
 }
 
 std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
+  // Check abort before starting image processing
+  if (externalAbortCallback_ && externalAbortCallback_()) {
+    Serial.printf("[%lu] [EHP] Abort requested, skipping image\n", millis());
+    return "";
+  }
+
   // Skip data URIs - embedded base64 images can't be extracted and waste memory
   if (src.length() >= 5 && strncasecmp(src.c_str(), "data:", 5) == 0) {
     Serial.printf("[%lu] [EHP] Skipping embedded data URI image\n", millis());
@@ -695,6 +710,7 @@ std::string ChapterHtmlSlimParser::cacheImage(const std::string& src) {
   convertConfig.maxWidth = static_cast<int>(config.viewportWidth);
   convertConfig.maxHeight = maxImageHeight;
   convertConfig.logTag = "EHP";
+  convertConfig.shouldAbort = externalAbortCallback_;
 
   const bool success = ImageConverterFactory::convertToBmp(tempPath, cachedBmpPath, convertConfig);
   SdMan.remove(tempPath.c_str());

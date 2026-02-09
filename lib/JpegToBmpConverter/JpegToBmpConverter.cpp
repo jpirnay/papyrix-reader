@@ -252,7 +252,8 @@ unsigned char JpegToBmpConverter::jpegReadCallback(unsigned char* pBuf, const un
 
 // Internal implementation with configurable target size and bit depth
 bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bmpOut, int targetWidth, int targetHeight,
-                                                     bool oneBit, bool quickMode) {
+                                                     bool oneBit, bool quickMode,
+                                                     const std::function<bool()>& shouldAbort) {
   Serial.printf("[%lu] [JPG] Converting JPEG to %s BMP (target: %dx%d)%s\n", millis(), oneBit ? "1-bit" : "2-bit",
                 targetWidth, targetHeight, quickMode ? " [QUICK]" : "");
 
@@ -414,6 +415,18 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
   const int mcuPixelWidth = imageInfo.m_MCUWidth;
 
   for (int mcuY = 0; mcuY < imageInfo.m_MCUSPerCol; mcuY++) {
+    if (shouldAbort && shouldAbort()) {
+      Serial.printf("[%lu] [JPG] Abort requested during JPEG conversion\n", millis());
+      if (rowAccum) delete[] rowAccum;
+      if (rowCount) delete[] rowCount;
+      if (atkinsonDitherer) delete atkinsonDitherer;
+      if (fsDitherer) delete fsDitherer;
+      if (atkinson1BitDitherer) delete atkinson1BitDitherer;
+      free(mcuRowBuffer);
+      free(rowBuffer);
+      return false;
+    }
+
     // Clear the MCU row buffer
     memset(mcuRowBuffer, 0, mcuRowPixels);
 
@@ -639,8 +652,8 @@ bool JpegToBmpConverter::jpegFileToBmpStream(FsFile& jpegFile, Print& bmpOut) {
 
 // Convert with custom target size (for thumbnails, 2-bit)
 bool JpegToBmpConverter::jpegFileToBmpStreamWithSize(FsFile& jpegFile, Print& bmpOut, int targetMaxWidth,
-                                                     int targetMaxHeight) {
-  return jpegFileToBmpStreamInternal(jpegFile, bmpOut, targetMaxWidth, targetMaxHeight, false);
+                                                     int targetMaxHeight, const std::function<bool()>& shouldAbort) {
+  return jpegFileToBmpStreamInternal(jpegFile, bmpOut, targetMaxWidth, targetMaxHeight, false, false, shouldAbort);
 }
 
 // Convert to 1-bit BMP (black and white only, no grays) using default target size

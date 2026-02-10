@@ -109,7 +109,7 @@ class TestParser {
       // Skip tiny decorative images (approximates ChapterHtmlSlimParser BMP dimension check).
       // Production checks actual BMP pixel dimensions; this mock uses HTML attributes as proxy,
       // so images missing width/height attributes won't be skipped here (production may still skip them).
-      if (imgWidth > 0 && imgHeight > 0 && (imgWidth <= 3 || imgHeight <= 3)) {
+      if (imgWidth > 0 && imgHeight > 0 && (imgWidth < 20 || imgHeight < 20)) {
         self->depth++;
         return;
       }
@@ -650,22 +650,22 @@ int main() {
     runner.expectFalse(parser.hasImagePlaceholder(), "skip_1px_width: 1px-wide image skipped");
   }
 
-  // Test 30: 3px-tall image at boundary is still skipped
+  // Test 30: 19px-tall image at boundary is still skipped
   {
     TestParser parser;
     bool ok = parser.parse(
-        "<html><body><img width=\"200\" height=\"3\" src=\"border.jpg\"/></body></html>");
-    runner.expectTrue(ok, "skip_3px_boundary: parses successfully");
-    runner.expectFalse(parser.hasImagePlaceholder(), "skip_3px_boundary: 3px image skipped");
+        "<html><body><img width=\"200\" height=\"19\" src=\"border.jpg\"/></body></html>");
+    runner.expectTrue(ok, "skip_19px_boundary: parses successfully");
+    runner.expectFalse(parser.hasImagePlaceholder(), "skip_19px_boundary: 19px image skipped");
   }
 
-  // Test 31: 4px-tall image is NOT skipped (just above threshold)
+  // Test 31: 20px-tall image is NOT skipped (at threshold)
   {
     TestParser parser;
     bool ok = parser.parse(
-        "<html><body><img width=\"200\" height=\"4\" src=\"small.jpg\"/></body></html>");
-    runner.expectTrue(ok, "keep_4px: parses successfully");
-    runner.expectTrue(parser.hasImagePlaceholder(), "keep_4px: 4px image kept");
+        "<html><body><img width=\"200\" height=\"20\" src=\"small.jpg\"/></body></html>");
+    runner.expectTrue(ok, "keep_20px: parses successfully");
+    runner.expectTrue(parser.hasImagePlaceholder(), "keep_20px: 20px image kept");
   }
 
   // Test 32: Normal-sized image is NOT skipped
@@ -705,22 +705,22 @@ int main() {
                       "hyperion_pattern: body text preserved");
   }
 
-  // Test 35: 3x3 pixel image is skipped (both dimensions at threshold)
+  // Test 35: 19x19 pixel image is skipped (both dimensions below threshold)
   {
     TestParser parser;
     bool ok = parser.parse(
-        "<html><body><img width=\"3\" height=\"3\" src=\"dot.gif\"/></body></html>");
-    runner.expectTrue(ok, "skip_3x3: parses successfully");
-    runner.expectFalse(parser.hasImagePlaceholder(), "skip_3x3: tiny square image skipped");
+        "<html><body><img width=\"19\" height=\"19\" src=\"dot.gif\"/></body></html>");
+    runner.expectTrue(ok, "skip_19x19: parses successfully");
+    runner.expectFalse(parser.hasImagePlaceholder(), "skip_19x19: tiny square image skipped");
   }
 
-  // Test 36: 4x4 pixel image is kept (both dimensions above threshold)
+  // Test 36: 20x20 pixel image is kept (both dimensions at threshold)
   {
     TestParser parser;
     bool ok = parser.parse(
-        "<html><body><img width=\"4\" height=\"4\" src=\"icon.gif\"/></body></html>");
-    runner.expectTrue(ok, "keep_4x4: parses successfully");
-    runner.expectTrue(parser.hasImagePlaceholder(), "keep_4x4: small but visible image kept");
+        "<html><body><img width=\"20\" height=\"20\" src=\"icon.gif\"/></body></html>");
+    runner.expectTrue(ok, "keep_20x20: parses successfully");
+    runner.expectTrue(parser.hasImagePlaceholder(), "keep_20x20: small but visible image kept");
   }
 
   return runner.allPassed() ? 0 : 1;

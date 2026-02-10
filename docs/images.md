@@ -49,7 +49,7 @@ convert progressive.jpg -interlace none baseline.jpg
 - **Max parse width**: 2048px — Memory limit during decoding
 - **Max parse height**: 3072px — Memory limit during decoding
 - **Max render height**: viewport — Images taller than half viewport get a dedicated page
-- **Min dimension**: 4px — Images ≤3px in width or height are skipped as decorative
+- **Min dimension**: 20px — Images <20px in width or height are skipped as decorative
 - **Min free heap**: 8KB — Parsing aborts if memory drops below
 
 Images exceeding viewport width are scaled down proportionally while maintaining aspect ratio.
@@ -74,7 +74,7 @@ Images are rendered when all conditions are met:
 
 ### Silently skipped (no placeholder)
 
-- **Tiny decorative images** — Width or height ≤3px (e.g. 1px-tall JPEG line separators used as chapter header decorations). These are invisible on e-paper and would only waste vertical space.
+- **Tiny decorative images** — Width or height <20px (e.g. 1px-tall JPEG line separators, small spacer GIFs, decorative borders). These are invisible on e-paper and would only waste vertical space.
 
 ### Skipped with placeholder text `[Image: alt-text]`
 

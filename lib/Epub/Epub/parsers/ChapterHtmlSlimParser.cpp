@@ -135,7 +135,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
           Bitmap bitmap(bmpFile, false);
           if (bitmap.parseHeaders() == BmpReaderError::Ok) {
             // Skip tiny decorative images (e.g. 1px-tall line separators) - invisible on e-paper
-            if (bitmap.getWidth() <= 3 || bitmap.getHeight() <= 3) {
+            if (bitmap.getWidth() < 20 || bitmap.getHeight() < 20) {
               bmpFile.close();
               self->depth += 1;
               return;

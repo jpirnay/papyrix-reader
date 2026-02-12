@@ -66,12 +66,10 @@ class CssParser {
   static TextAlign parseTextAlign(const std::string& value);
   static CssFontStyle parseFontStyle(const std::string& value);
   static CssFontWeight parseFontWeight(const std::string& value);
-  static float parseTextIndent(const std::string& value);
-  static int parseMargin(const std::string& value);
 
   static constexpr size_t MAX_CSS_RULES = 512;
   static constexpr size_t MAX_CSS_SELECTOR_LENGTH = 256;
-  static constexpr size_t MAX_CSS_FILE_SIZE = 256 * 1024;
+  static constexpr size_t MAX_CSS_FILE_SIZE = 64 * 1024;
 
   std::map<std::string, CssStyle> styleMap_;
 };

@@ -80,32 +80,32 @@ int main() {
   }
 
   // ============================================
-  // File size limit (MAX_CSS_FILE_SIZE = 256KB)
+  // File size limit (MAX_CSS_FILE_SIZE = 64KB)
   // ============================================
 
   // Test 5: File exactly at limit parses OK
   {
     SdMan.clearFiles();
-    // 256KB = 262144 bytes. Create a valid CSS string of exactly that size.
+    // 64KB = 65536 bytes. Create a valid CSS string of exactly that size.
     std::string css = "p { text-align: center; }";
-    css.resize(256 * 1024, ' ');  // pad with spaces to exactly 256KB
+    css.resize(64 * 1024, ' ');  // pad with spaces to exactly 64KB
     SdMan.registerFile("/at_limit.css", css);
 
     CssParser parser;
     bool ok = parser.parseFile("/at_limit.css");
-    runner.expectTrue(ok, "file size: 256KB file accepted");
+    runner.expectTrue(ok, "file size: 64KB file accepted");
   }
 
   // Test 6: File over limit is rejected
   {
     SdMan.clearFiles();
     std::string css = "p { text-align: center; }";
-    css.resize(256 * 1024 + 1, ' ');  // one byte over limit
+    css.resize(64 * 1024 + 1, ' ');  // one byte over limit
     SdMan.registerFile("/over_limit.css", css);
 
     CssParser parser;
     bool ok = parser.parseFile("/over_limit.css");
-    runner.expectFalse(ok, "file size: 256KB+1 file rejected");
+    runner.expectFalse(ok, "file size: 64KB+1 file rejected");
     runner.expectFalse(parser.hasStyles(), "file size: no styles from oversized file");
   }
 

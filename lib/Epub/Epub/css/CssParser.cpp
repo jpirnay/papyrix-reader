@@ -4,7 +4,6 @@
 #include <SDCardManager.h>
 
 #include <cctype>
-#include <cmath>
 #include <cstdlib>
 
 namespace {
@@ -292,8 +291,7 @@ void CssParser::parseRule(const std::string& selector, const std::string& proper
       }
 
       // Store style if it has any supported properties
-      if (style.hasTextAlign || style.hasFontStyle || style.hasFontWeight || style.hasTextIndent ||
-          style.hasMarginTop || style.hasMarginBottom || style.hasDirection) {
+      if (style.hasTextAlign || style.hasFontStyle || style.hasFontWeight || style.hasDirection) {
         auto it = styleMap_.find(singleSelector);
         if (it != styleMap_.end()) {
           it->second.merge(style);
@@ -317,15 +315,6 @@ void CssParser::parseProperty(const std::string& name, const std::string& value,
   } else if (name == "font-weight") {
     style.fontWeight = parseFontWeight(value);
     style.hasFontWeight = true;
-  } else if (name == "text-indent") {
-    style.textIndent = parseTextIndent(value);
-    style.hasTextIndent = true;
-  } else if (name == "margin-top") {
-    style.marginTop = parseMargin(value);
-    style.hasMarginTop = style.marginTop > 0;
-  } else if (name == "margin-bottom") {
-    style.marginBottom = parseMargin(value);
-    style.hasMarginBottom = style.marginBottom > 0;
   } else if (name == "direction") {
     std::string v = toLower(trim(value));
     if (v == "rtl") {
@@ -372,59 +361,6 @@ CssFontWeight CssParser::parseFontWeight(const std::string& value) {
   }
 
   return CssFontWeight::Normal;
-}
-
-float CssParser::parseTextIndent(const std::string& value) {
-  std::string v = toLower(trim(value));
-
-  // Default unit: pixels. For 'em' convert to px assuming 16px per em.
-  float factor = 1.0f;
-
-  if (v.length() >= 2) {
-    std::string suffix = v.substr(v.length() - 2);
-    if (suffix == "em") {
-      factor = 16.0f;
-      v = v.substr(0, v.length() - 2);
-    } else if (suffix == "px") {
-      v = v.substr(0, v.length() - 2);
-    } else if (suffix == "pt") {
-      v = v.substr(0, v.length() - 2);
-    }
-  }
-
-  v = trim(v);
-  float indentVal = 0.0f;
-  if (!v.empty()) {
-    indentVal = static_cast<float>(std::atof(v.c_str())) * factor;
-  }
-
-  return indentVal;
-}
-
-int CssParser::parseMargin(const std::string& value) {
-  std::string v = toLower(trim(value));
-  int newLines = 0;
-
-  if (!v.empty() && v.back() == '%') {
-    // Handle percentage: ~30 lines per page, so percentage/100 * 30 lines
-    v = v.substr(0, v.length() - 1);
-    float percentage = static_cast<float>(std::atof(v.c_str()));
-    newLines = static_cast<int>(std::floor(percentage * 0.3f));
-  } else if (v.length() >= 2) {
-    std::string suffix = v.substr(v.length() - 2);
-    if (suffix == "em") {
-      // 1em == 1 new line
-      v = v.substr(0, v.length() - 2);
-      newLines = static_cast<int>(std::floor(std::atof(v.c_str())));
-    }
-  }
-
-  // Limit to maximum of 2 lines
-  if (newLines > 2) {
-    newLines = 2;
-  }
-
-  return newLines > 0 ? newLines : 0;
 }
 
 CssStyle CssParser::parseInlineStyle(const std::string& styleAttr) {

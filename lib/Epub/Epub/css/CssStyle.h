@@ -42,8 +42,7 @@ enum class TextDirection {
  * - text-align: left, right, center, justify
  * - font-style: normal, italic
  * - font-weight: normal, bold (700+)
- * - text-indent: px, em units
- * - margin-top/bottom: em units (as line spacing)
+ * - direction: ltr, rtl
  */
 struct CssStyle {
   TextAlign textAlign = TextAlign::None;
@@ -54,15 +53,6 @@ struct CssStyle {
 
   CssFontWeight fontWeight = CssFontWeight::Normal;
   bool hasFontWeight = false;
-
-  float textIndent = 0.0f;
-  bool hasTextIndent = false;
-
-  int marginTop = 0;
-  bool hasMarginTop = false;
-
-  int marginBottom = 0;
-  bool hasMarginBottom = false;
 
   TextDirection direction = TextDirection::Ltr;
   bool hasDirection = false;
@@ -81,18 +71,6 @@ struct CssStyle {
       fontWeight = other.fontWeight;
       hasFontWeight = true;
     }
-    if (other.hasTextIndent) {
-      textIndent = other.textIndent;
-      hasTextIndent = true;
-    }
-    if (other.hasMarginTop) {
-      marginTop = other.marginTop;
-      hasMarginTop = true;
-    }
-    if (other.hasMarginBottom) {
-      marginBottom = other.marginBottom;
-      hasMarginBottom = true;
-    }
     if (other.hasDirection) {
       direction = other.direction;
       hasDirection = true;
@@ -106,12 +84,6 @@ struct CssStyle {
     hasFontStyle = false;
     fontWeight = CssFontWeight::Normal;
     hasFontWeight = false;
-    textIndent = 0.0f;
-    hasTextIndent = false;
-    marginTop = 0;
-    hasMarginTop = false;
-    marginBottom = 0;
-    hasMarginBottom = false;
     direction = TextDirection::Ltr;
     hasDirection = false;
   }

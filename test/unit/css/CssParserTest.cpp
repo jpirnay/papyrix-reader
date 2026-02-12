@@ -1,7 +1,5 @@
 #include "test_utils.h"
 
-#include <cmath>
-#include <cstdlib>
 #include <map>
 #include <string>
 
@@ -42,15 +40,6 @@ struct CssStyle {
   CssFontWeight fontWeight = CssFontWeight::Normal;
   bool hasFontWeight = false;
 
-  float textIndent = 0.0f;
-  bool hasTextIndent = false;
-
-  int marginTop = 0;
-  bool hasMarginTop = false;
-
-  int marginBottom = 0;
-  bool hasMarginBottom = false;
-
   TextDirection direction = TextDirection::Ltr;
   bool hasDirection = false;
 
@@ -67,18 +56,6 @@ struct CssStyle {
       fontWeight = other.fontWeight;
       hasFontWeight = true;
     }
-    if (other.hasTextIndent) {
-      textIndent = other.textIndent;
-      hasTextIndent = true;
-    }
-    if (other.hasMarginTop) {
-      marginTop = other.marginTop;
-      hasMarginTop = true;
-    }
-    if (other.hasMarginBottom) {
-      marginBottom = other.marginBottom;
-      hasMarginBottom = true;
-    }
     if (other.hasDirection) {
       direction = other.direction;
       hasDirection = true;
@@ -92,12 +69,6 @@ struct CssStyle {
     hasFontStyle = false;
     fontWeight = CssFontWeight::Normal;
     hasFontWeight = false;
-    textIndent = 0.0f;
-    hasTextIndent = false;
-    marginTop = 0;
-    hasMarginTop = false;
-    marginBottom = 0;
-    hasMarginBottom = false;
     direction = TextDirection::Ltr;
     hasDirection = false;
   }
@@ -166,55 +137,6 @@ CssFontWeight parseFontWeight(const std::string& value) {
   return CssFontWeight::Normal;
 }
 
-float parseTextIndent(const std::string& value) {
-  std::string v = toLower(trim(value));
-
-  float factor = 1.0f;
-
-  if (v.length() >= 2) {
-    std::string suffix = v.substr(v.length() - 2);
-    if (suffix == "em") {
-      factor = 16.0f;
-      v = v.substr(0, v.length() - 2);
-    } else if (suffix == "px") {
-      v = v.substr(0, v.length() - 2);
-    } else if (suffix == "pt") {
-      v = v.substr(0, v.length() - 2);
-    }
-  }
-
-  v = trim(v);
-  float indentVal = 0.0f;
-  if (!v.empty()) {
-    indentVal = static_cast<float>(std::atof(v.c_str())) * factor;
-  }
-
-  return indentVal;
-}
-
-int parseMargin(const std::string& value) {
-  std::string v = toLower(trim(value));
-  int newLines = 0;
-
-  if (!v.empty() && v.back() == '%') {
-    v = v.substr(0, v.length() - 1);
-    float percentage = static_cast<float>(std::atof(v.c_str()));
-    newLines = static_cast<int>(std::floor(percentage * 0.3f));
-  } else if (v.length() >= 2) {
-    std::string suffix = v.substr(v.length() - 2);
-    if (suffix == "em") {
-      v = v.substr(0, v.length() - 2);
-      newLines = static_cast<int>(std::floor(std::atof(v.c_str())));
-    }
-  }
-
-  if (newLines > 2) {
-    newLines = 2;
-  }
-
-  return newLines > 0 ? newLines : 0;
-}
-
 void parseProperty(const std::string& name, const std::string& value, CssStyle& style) {
   if (name == "text-align") {
     style.textAlign = parseTextAlign(value);
@@ -225,15 +147,6 @@ void parseProperty(const std::string& name, const std::string& value, CssStyle& 
   } else if (name == "font-weight") {
     style.fontWeight = parseFontWeight(value);
     style.hasFontWeight = true;
-  } else if (name == "text-indent") {
-    style.textIndent = parseTextIndent(value);
-    style.hasTextIndent = true;
-  } else if (name == "margin-top") {
-    style.marginTop = parseMargin(value);
-    style.hasMarginTop = style.marginTop > 0;
-  } else if (name == "margin-bottom") {
-    style.marginBottom = parseMargin(value);
-    style.hasMarginBottom = style.marginBottom > 0;
   } else if (name == "direction") {
     std::string v = toLower(trim(value));
     if (v == "rtl") {
@@ -343,51 +256,6 @@ int main() {
   runner.expectTrue(parseFontWeight("600") == CssFontWeight::Normal, "parseFontWeight: '600' is Normal");
 
   // ============================================
-  // parseTextIndent() tests
-  // ============================================
-
-  // Test 12: Pixel values
-  runner.expectFloatEq(20.0f, parseTextIndent("20px"), "parseTextIndent: '20px'");
-  runner.expectFloatEq(0.0f, parseTextIndent("0px"), "parseTextIndent: '0px'");
-
-  // Test 13: Em values (1em = 16px)
-  runner.expectFloatEq(16.0f, parseTextIndent("1em"), "parseTextIndent: '1em' = 16px");
-  runner.expectFloatEq(32.0f, parseTextIndent("2em"), "parseTextIndent: '2em' = 32px");
-  runner.expectFloatEq(8.0f, parseTextIndent("0.5em"), "parseTextIndent: '0.5em' = 8px");
-
-  // Test 14: Point values (treated as pixels)
-  runner.expectFloatEq(12.0f, parseTextIndent("12pt"), "parseTextIndent: '12pt' = 12");
-
-  // Test 15: No unit (treated as pixels)
-  runner.expectFloatEq(10.0f, parseTextIndent("10"), "parseTextIndent: '10' (no unit)");
-
-  // Test 16: Empty/invalid
-  runner.expectFloatEq(0.0f, parseTextIndent(""), "parseTextIndent: empty = 0");
-  runner.expectFloatEq(0.0f, parseTextIndent("invalid"), "parseTextIndent: 'invalid' = 0");
-
-  // ============================================
-  // parseMargin() tests
-  // ============================================
-
-  // Test 17: Em values (1em = 1 line)
-  runner.expectEq(1, parseMargin("1em"), "parseMargin: '1em' = 1 line");
-  runner.expectEq(2, parseMargin("2em"), "parseMargin: '2em' = 2 lines");
-  runner.expectEq(2, parseMargin("5em"), "parseMargin: '5em' clamped to 2 lines");
-
-  // Test 18: Percentage values
-  // 10 * 0.3 = 3, then floor(3) = 3, clamped to 2
-  runner.expectEq(2, parseMargin("10%"), "parseMargin: '10%' clamped to 2");
-
-  // Test 19: Small percentages
-  runner.expectEq(0, parseMargin("1%"), "parseMargin: '1%' = 0 lines");
-
-  // Test 20: No supported unit
-  runner.expectEq(0, parseMargin("20px"), "parseMargin: '20px' = 0 (px not supported)");
-
-  // Test 21: Empty/invalid
-  runner.expectEq(0, parseMargin(""), "parseMargin: empty = 0");
-
-  // ============================================
   // parseInlineStyle() tests
   // ============================================
 
@@ -409,11 +277,11 @@ int main() {
 
   // Test 24: With extra whitespace
   {
-    CssStyle style = parseInlineStyle("  font-style :  italic  ;  text-indent : 2em  ");
+    CssStyle style = parseInlineStyle("  font-style :  italic  ;  font-weight : bold  ");
     runner.expectTrue(style.hasFontStyle, "parseInlineStyle: whitespace font-style");
     runner.expectTrue(style.fontStyle == CssFontStyle::Italic, "parseInlineStyle: whitespace font-style value");
-    runner.expectTrue(style.hasTextIndent, "parseInlineStyle: whitespace text-indent");
-    runner.expectFloatEq(32.0f, style.textIndent, "parseInlineStyle: whitespace text-indent value");
+    runner.expectTrue(style.hasFontWeight, "parseInlineStyle: whitespace font-weight");
+    runner.expectTrue(style.fontWeight == CssFontWeight::Bold, "parseInlineStyle: whitespace font-weight value");
   }
 
   // Test 25: Empty string
@@ -440,7 +308,7 @@ int main() {
   {
     CssStyle style = parseInlineStyle("color: red; text-align: left; display: none");
     runner.expectTrue(style.hasTextAlign, "parseInlineStyle: known prop parsed");
-    runner.expectFalse(style.hasMarginTop, "parseInlineStyle: unknown 'color' ignored");
+    runner.expectFalse(style.hasFontWeight, "parseInlineStyle: unknown 'color' ignored");
   }
 
   // Test 29: Case insensitivity for property names
@@ -503,8 +371,8 @@ int main() {
     style.hasTextAlign = true;
     style.fontWeight = CssFontWeight::Bold;
     style.hasFontWeight = true;
-    style.textIndent = 100.0f;
-    style.hasTextIndent = true;
+    style.fontStyle = CssFontStyle::Italic;
+    style.hasFontStyle = true;
     style.direction = TextDirection::Rtl;
     style.hasDirection = true;
 
@@ -514,8 +382,8 @@ int main() {
     runner.expectFalse(style.hasTextAlign, "reset: hasTextAlign false");
     runner.expectTrue(style.fontWeight == CssFontWeight::Normal, "reset: fontWeight to Normal");
     runner.expectFalse(style.hasFontWeight, "reset: hasFontWeight false");
-    runner.expectFloatEq(0.0f, style.textIndent, "reset: textIndent to 0");
-    runner.expectFalse(style.hasTextIndent, "reset: hasTextIndent false");
+    runner.expectTrue(style.fontStyle == CssFontStyle::Normal, "reset: fontStyle to Normal");
+    runner.expectFalse(style.hasFontStyle, "reset: hasFontStyle false");
     runner.expectTrue(style.direction == TextDirection::Ltr, "reset: direction to Ltr");
     runner.expectFalse(style.hasDirection, "reset: hasDirection false");
   }

@@ -119,6 +119,14 @@ class MockPageCache {
   uint16_t pageCount() const { return pageCount_; }
   bool isPartial() const { return isPartial_; }
 
+  static constexpr uint16_t EXTEND_THRESHOLD = 3;
+
+  bool needsExtension(uint16_t currentPage) const {
+    if (!isPartial_) return false;
+    if (pageCount_ == 0) return true;
+    return currentPage + EXTEND_THRESHOLD >= pageCount_;
+  }
+
  private:
   uint16_t pageCount_ = 0;
   bool isPartial_ = false;
@@ -166,6 +174,29 @@ struct ReaderCacheState {
       parser.reset();
       parserSpineIndex = -1;
     }
+  }
+
+  // Simulates ensurePageCached() from ReaderState (lines 665-699)
+  bool ensurePageCached(uint16_t pageNum) {
+    if (!pageCache) return false;
+
+    uint16_t pageCount = pageCache->pageCount();
+    bool needsExtension = pageCache->needsExtension(pageNum);
+    bool isPartial = pageCache->isPartial();
+
+    if (pageNum < pageCount) {
+      if (needsExtension) {
+        createOrExtendCache();
+      }
+      return true;
+    }
+
+    if (!isPartial) return false;
+
+    createOrExtendCache();
+
+    pageCount = pageCache ? pageCache->pageCount() : 0;
+    return pageNum < pageCount;
   }
 
   // Simulates the backward navigation loop from the diff (lines 584-593)
@@ -467,6 +498,79 @@ int main() {
 
     state.cacheEntireChapterForBackwardNav();
     runner.expectEq(static_cast<uint16_t>(1), state.pageCache->pageCount(), "single_page_unchanged");
+  }
+
+  // ============================================
+  // ensurePageCached logic
+  // ============================================
+
+  // Test 15: ensurePageCached returns false when no cache exists
+  {
+    ReaderCacheState state;
+    runner.expectFalse(state.ensurePageCached(0), "ensure_no_cache_returns_false");
+  }
+
+  // Test 16: Page well within cache range - no extension triggered
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 25;
+    state.createOrExtendCache();  // Creates 10 pages (CACHE_CHUNK)
+
+    // Page 3: 3+3=6 < 10, no extension needed
+    runner.expectTrue(state.ensurePageCached(3), "ensure_cached_no_extend_available");
+    runner.expectEq(static_cast<uint16_t>(10), state.pageCache->pageCount(), "ensure_cached_no_extend_count");
+  }
+
+  // Test 17: Page cached but near end of partial cache - pre-extends
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 25;
+    state.createOrExtendCache();  // 10 pages, partial
+
+    // Page 8: 8+3=11 >= 10 and isPartial, triggers pre-extend
+    runner.expectTrue(state.ensurePageCached(8), "ensure_near_end_available");
+    runner.expectEq(static_cast<uint16_t>(20), state.pageCache->pageCount(), "ensure_near_end_extended");
+  }
+
+  // Test 18: Page beyond complete cache - returns false
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 10;  // Exactly CACHE_CHUNK, cache will be complete
+    state.createOrExtendCache();
+
+    runner.expectFalse(state.pageCache->isPartial(), "ensure_complete_not_partial");
+    runner.expectFalse(state.ensurePageCached(15), "ensure_beyond_complete_false");
+  }
+
+  // Test 19: Page beyond partial cache - extends to reach it
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 25;
+    state.createOrExtendCache();  // 10 pages, partial
+
+    // Page 12 not in cache (12 >= 10), but cache is partial -> extend to 20
+    runner.expectTrue(state.ensurePageCached(12), "ensure_extend_reaches_page");
+    runner.expectEq(static_cast<uint16_t>(20), state.pageCache->pageCount(), "ensure_extend_new_count");
+  }
+
+  // Test 20: Page beyond partial cache - single extension not sufficient
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 25;
+    state.createOrExtendCache();  // 10 pages, partial
+
+    // Page 22 needs more than one extension (10+10=20, 22 >= 20)
+    runner.expectFalse(state.ensurePageCached(22), "ensure_extend_insufficient");
+    runner.expectEq(static_cast<uint16_t>(20), state.pageCache->pageCount(), "ensure_extend_insufficient_count");
+  }
+
+  // Test 21: First page of cache always available
+  {
+    ReaderCacheState state;
+    state.totalPagesForChapter = 25;
+    state.createOrExtendCache();
+
+    runner.expectTrue(state.ensurePageCached(0), "ensure_first_page");
   }
 
   return runner.allPassed() ? 0 : 1;

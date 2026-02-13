@@ -616,6 +616,9 @@ void ReaderState::renderCachedPage(Core& core) {
     return;
   }
 
+  // ensurePageCached may have used the frame buffer as ZIP decompression dictionary
+  renderer_.clearScreen(theme.backgroundColor);
+
   // Load and render page (cache is now guaranteed to exist, we own it)
   size_t pageCount = pageCache_ ? pageCache_->pageCount() : 0;
   auto page = pageCache_ ? pageCache_->loadPage(currentSectionPage_) : nullptr;

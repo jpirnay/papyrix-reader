@@ -59,6 +59,7 @@ class TestParser {
   };
 
   std::vector<ParsedElement> elements;
+  std::vector<std::pair<std::string, uint16_t>> anchorMap;
   std::string currentText;
   int depth = 0;
   int skipUntilDepth = INT_MAX;
@@ -66,6 +67,7 @@ class TestParser {
   int italicUntilDepth = INT_MAX;
   bool pendingRtl = false;
   int rtlUntilDepth = INT_MAX;
+  uint16_t blockCount = 0;
 
   void flushText() {
     if (!currentText.empty()) {
@@ -163,7 +165,8 @@ class TestParser {
       }
     }
 
-    // Extract dir attribute (mirrors ChapterHtmlSlimParser RTL logic)
+    // Extract dir and id attributes (mirrors ChapterHtmlSlimParser attribute extraction)
+    std::string idAttr;
     if (atts) {
       for (int i = 0; atts[i]; i += 2) {
         if (strcmp(atts[i], "dir") == 0) {
@@ -174,6 +177,8 @@ class TestParser {
             self->pendingRtl = false;
             self->rtlUntilDepth = std::min(self->rtlUntilDepth, self->depth);
           }
+        } else if (strcmp(atts[i], "id") == 0 && atts[i + 1][0] != '\0') {
+          idAttr = atts[i + 1];
         }
       }
     }
@@ -181,12 +186,14 @@ class TestParser {
     // Headers
     if (matches(name, HEADER_TAGS, NUM_HEADER_TAGS)) {
       self->flushText();
+      self->blockCount++;
       self->boldUntilDepth = std::min(self->boldUntilDepth, self->depth);
     }
 
     // Block tags
     if (matches(name, BLOCK_TAGS, NUM_BLOCK_TAGS)) {
       self->flushText();
+      self->blockCount++;
     }
 
     // Bold tags
@@ -197,6 +204,11 @@ class TestParser {
     // Italic tags
     if (matches(name, ITALIC_TAGS, NUM_ITALIC_TAGS)) {
       self->italicUntilDepth = std::min(self->italicUntilDepth, self->depth);
+    }
+
+    // Record anchor-to-page mapping (after block handling, mirrors ChapterHtmlSlimParser)
+    if (!idAttr.empty()) {
+      self->anchorMap.emplace_back(std::move(idAttr), self->blockCount);
     }
 
     self->depth++;
@@ -721,6 +733,142 @@ int main() {
         "<html><body><img width=\"20\" height=\"20\" src=\"icon.gif\"/></body></html>");
     runner.expectTrue(ok, "keep_20x20: parses successfully");
     runner.expectTrue(parser.hasImagePlaceholder(), "keep_20x20: small but visible image kept");
+  }
+
+  // ============================================
+  // Anchor map (id attribute) tests
+  // ============================================
+
+  // Test 37: Elements with id attribute are tracked in anchor map
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<p id=\"chapter1\">Chapter 1</p>"
+        "<p id=\"chapter2\">Chapter 2</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_basic: parses successfully");
+    runner.expectEq(static_cast<size_t>(2), parser.anchorMap.size(), "anchor_basic: two anchors collected");
+    runner.expectEqual("chapter1", parser.anchorMap[0].first, "anchor_basic: first anchor id");
+    runner.expectEqual("chapter2", parser.anchorMap[1].first, "anchor_basic: second anchor id");
+  }
+
+  // Test 38: Empty id attribute is skipped
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<p id=\"\">Empty id</p>"
+        "<p id=\"valid\">Valid id</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_empty_id: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(), "anchor_empty_id: only valid id collected");
+    runner.expectEqual("valid", parser.anchorMap[0].first, "anchor_empty_id: correct id");
+  }
+
+  // Test 39: id attributes inside <head> skip region are not tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html>"
+        "<head><meta id=\"head-meta\"/></head>"
+        "<body><p id=\"body-anchor\">Content</p></body>"
+        "</html>");
+    runner.expectTrue(ok, "anchor_skip_head: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(), "anchor_skip_head: only body anchor collected");
+    runner.expectEqual("body-anchor", parser.anchorMap[0].first, "anchor_skip_head: correct id");
+  }
+
+  // Test 40: id attributes inside <table> skip region are not tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<table><tr><td id=\"cell1\">Data</td></tr></table>"
+        "<p id=\"after-table\">Text</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_skip_table: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(), "anchor_skip_table: only post-table anchor");
+    runner.expectEqual("after-table", parser.anchorMap[0].first, "anchor_skip_table: correct id");
+  }
+
+  // Test 41: id attributes on aria-hidden anchors are not tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<a href=\"#\" aria-hidden=\"true\" id=\"hidden-anchor\">hidden</a>"
+        "<p id=\"visible\">Visible</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_skip_aria_hidden: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(),
+                    "anchor_skip_aria_hidden: only visible anchor collected");
+    runner.expectEqual("visible", parser.anchorMap[0].first, "anchor_skip_aria_hidden: correct id");
+  }
+
+  // Test 42: id on non-block element (span) is still tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<p>Before <span id=\"inline-anchor\">inline</span> after</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_inline: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(), "anchor_inline: inline anchor collected");
+    runner.expectEqual("inline-anchor", parser.anchorMap[0].first, "anchor_inline: correct id");
+  }
+
+  // Test 43: id on header element is tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<h1 id=\"title\">Title</h1>"
+        "<h2 id=\"section1\">Section 1</h2>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_headers: parses successfully");
+    runner.expectEq(static_cast<size_t>(2), parser.anchorMap.size(), "anchor_headers: both header anchors collected");
+    runner.expectEqual("title", parser.anchorMap[0].first, "anchor_headers: h1 id");
+    runner.expectEqual("section1", parser.anchorMap[1].first, "anchor_headers: h2 id");
+  }
+
+  // Test 44: Block count reflects correct ordering for anchor page mapping
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<p id=\"start\">First paragraph</p>"
+        "<p>Second paragraph</p>"
+        "<p id=\"end\">Third paragraph</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_page_order: parses successfully");
+    runner.expectEq(static_cast<size_t>(2), parser.anchorMap.size(), "anchor_page_order: two anchors");
+    // First anchor is at block 1 (first <p>), third is at block 3 (third <p>)
+    runner.expectTrue(parser.anchorMap[0].second < parser.anchorMap[1].second,
+                      "anchor_page_order: second anchor has higher block count");
+  }
+
+  // Test 45: No id attributes means empty anchor map
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body><p>No ids here</p><p>None here either</p></body></html>");
+    runner.expectTrue(ok, "anchor_none: parses successfully");
+    runner.expectEq(static_cast<size_t>(0), parser.anchorMap.size(), "anchor_none: empty anchor map");
+  }
+
+  // Test 46: id on pagebreak skip region is not tracked
+  {
+    TestParser parser;
+    bool ok = parser.parse(
+        "<html><body>"
+        "<span role=\"doc-pagebreak\" id=\"page5\" title=\"5\">5</span>"
+        "<p id=\"after-pagebreak\">Content</p>"
+        "</body></html>");
+    runner.expectTrue(ok, "anchor_skip_pagebreak: parses successfully");
+    runner.expectEq(static_cast<size_t>(1), parser.anchorMap.size(),
+                    "anchor_skip_pagebreak: only post-pagebreak anchor");
+    runner.expectEqual("after-pagebreak", parser.anchorMap[0].first, "anchor_skip_pagebreak: correct id");
   }
 
   return runner.allPassed() ? 0 : 1;

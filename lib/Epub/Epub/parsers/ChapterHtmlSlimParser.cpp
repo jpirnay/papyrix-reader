@@ -227,10 +227,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     }
   }
 
-  // Extract class, style, and dir attributes
+  // Extract class, style, dir, and id attributes
   std::string classAttr;
   std::string styleAttr;
   std::string dirAttr;
+  std::string idAttr;
   if (atts != nullptr) {
     for (int i = 0; atts[i]; i += 2) {
       if (strcmp(atts[i], "class") == 0) {
@@ -239,6 +240,8 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
         styleAttr = atts[i + 1];
       } else if (strcmp(atts[i], "dir") == 0) {
         dirAttr = atts[i + 1];
+      } else if (strcmp(atts[i], "id") == 0 && atts[i + 1][0] != '\0') {
+        idAttr = atts[i + 1];
       }
     }
   }
@@ -319,6 +322,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     self->boldUntilDepth = min(self->boldUntilDepth, self->depth);
   } else if (matches(name, ITALIC_TAGS, NUM_ITALIC_TAGS)) {
     self->italicUntilDepth = min(self->italicUntilDepth, self->depth);
+  }
+
+  // Record anchor-to-page mapping (after block handling so pagesCreated_ reflects current page)
+  if (!idAttr.empty()) {
+    self->anchorMap_.emplace_back(std::move(idAttr), self->pagesCreated_);
   }
 
   self->depth += 1;

@@ -9,6 +9,8 @@
 #include <MarkdownParser.h>
 #include <PageCache.h>
 #include <PlainTextParser.h>
+#include <SDCardManager.h>
+#include <Serialization.h>
 #include <esp_system.h>
 
 #include <cstring>
@@ -42,6 +44,56 @@ inline std::string contentCachePath(const char* cacheDir, int fontId) {
 }
 }  // namespace
 
+void ReaderState::saveAnchorMap(const ContentParser& parser, const std::string& cachePath) {
+  const auto& anchors = parser.getAnchorMap();
+
+  std::string anchorPath = cachePath + ".anchors";
+  FsFile file;
+  if (!SdMan.openFileForWrite("RDR", anchorPath, file)) return;
+
+  if (anchors.size() > UINT16_MAX) {
+    uint16_t zero = 0;
+    serialization::writePod(file, zero);
+    file.close();
+    return;
+  }
+  uint16_t count = static_cast<uint16_t>(anchors.size());
+  serialization::writePod(file, count);
+  for (const auto& entry : anchors) {
+    serialization::writeString(file, entry.first);
+    serialization::writePod(file, entry.second);
+  }
+  file.close();
+}
+
+int ReaderState::loadAnchorPage(const std::string& cachePath, const std::string& anchor) {
+  std::string anchorPath = cachePath + ".anchors";
+  FsFile file;
+  if (!SdMan.openFileForRead("RDR", anchorPath, file)) return -1;
+
+  uint16_t count;
+  if (!serialization::readPodChecked(file, count)) {
+    file.close();
+    return -1;
+  }
+
+  for (uint16_t i = 0; i < count; i++) {
+    std::string anchorId;
+    uint16_t page;
+    if (!serialization::readString(file, anchorId) || !serialization::readPodChecked(file, page)) {
+      file.close();
+      return -1;
+    }
+    if (anchorId == anchor) {
+      file.close();
+      return page;
+    }
+  }
+
+  file.close();
+  return -1;
+}
+
 int ReaderState::calcFirstContentSpine(bool hasCover, int textStartIndex, size_t spineCount) {
   if (hasCover && textStartIndex == 0 && spineCount > 1) {
     return 1;
@@ -60,20 +112,30 @@ void ReaderState::createOrExtendCacheImpl(ContentParser& parser, const std::stri
   if (!pageCache_) {
     pageCache_.reset(new PageCache(cachePath));
     if (pageCache_->load(config)) {
-      needsExtend = pageCache_->isPartial();
+      if (!SdMan.exists((cachePath + ".anchors").c_str())) {
+        needsCreate = true;  // Migration: rebuild cache to generate anchor map
+      } else {
+        needsExtend = pageCache_->isPartial();
+      }
     } else {
       needsCreate = true;
     }
   } else {
-    needsExtend = pageCache_->isPartial();
+    if (!SdMan.exists((cachePath + ".anchors").c_str())) {
+      needsCreate = true;  // Migration: rebuild cache to generate anchor map
+    } else {
+      needsExtend = pageCache_->isPartial();
+    }
   }
 
   if (pageCache_) {
     if (needsExtend) {
       pageCache_->extend(parser, PageCache::DEFAULT_CACHE_CHUNK);
+      saveAnchorMap(parser, cachePath);
     } else if (needsCreate) {
       parser.reset();  // Ensure clean state for fresh cache creation
       pageCache_->create(parser, config, PageCache::DEFAULT_CACHE_CHUNK);
+      saveAnchorMap(parser, cachePath);
     }
   }
 }
@@ -93,6 +155,10 @@ void ReaderState::backgroundCacheImpl(ContentParser& parser, const std::string& 
   // Create/load cache (we own pageCache_ while task is running)
   pageCache_.reset(new PageCache(cachePath));
   bool loaded = pageCache_->load(config);
+  // Migration: rebuild cache to generate anchor map if missing
+  if (loaded && !SdMan.exists((cachePath + ".anchors").c_str())) {
+    loaded = false;
+  }
   bool needsExtend = loaded && pageCache_->needsExtension(currentSectionPage_);
 
   // Check for abort after setup
@@ -109,6 +175,10 @@ void ReaderState::backgroundCacheImpl(ContentParser& parser, const std::string& 
     } else {
       parser.reset();  // Ensure clean state for fresh cache creation
       success = pageCache_->create(parser, config, PageCache::DEFAULT_CACHE_CHUNK, 0, shouldAbort);
+    }
+
+    if (success && !cacheTask_.shouldStop()) {
+      saveAnchorMap(parser, cachePath);
     }
 
     if (!success || cacheTask_.shouldStop()) {
@@ -1104,9 +1174,60 @@ int ReaderState::findCurrentTocEntry(Core& core) {
 
   if (type == ContentType::Epub) {
     auto* provider = core.content.asEpub();
-    if (provider && provider->getEpub()) {
-      return provider->getEpub()->getTocIndexForSpineIndex(currentSpineIndex_);
+    if (!provider || !provider->getEpub()) return -1;
+    auto epub = provider->getEpubShared();
+
+    // Start with spine-level match as fallback
+    int bestMatch = epub->getTocIndexForSpineIndex(currentSpineIndex_);
+    int bestMatchPage = -1;
+
+    // Load anchor map once from disk (avoids reopening file per TOC entry)
+    std::string cachePath = epubSectionCachePath(epub->getCachePath(), currentSpineIndex_);
+    std::string anchorPath = cachePath + ".anchors";
+    std::vector<std::pair<std::string, uint16_t>> anchors;
+    {
+      FsFile file;
+      if (SdMan.openFileForRead("RDR", anchorPath, file)) {
+        uint16_t count;
+        if (serialization::readPodChecked(file, count)) {
+          for (uint16_t j = 0; j < count; j++) {
+            std::string id;
+            uint16_t page;
+            if (!serialization::readString(file, id) || !serialization::readPodChecked(file, page)) break;
+            anchors.emplace_back(std::move(id), page);
+          }
+        }
+        file.close();
+      }
     }
+
+    // Refine: find the latest TOC entry whose anchor page <= current page
+    const int tocCount = epub->getTocItemsCount();
+
+    for (int i = 0; i < tocCount; i++) {
+      auto tocItem = epub->getTocItem(i);
+      if (tocItem.spineIndex != currentSpineIndex_) continue;
+
+      int entryPage = 0;  // No anchor = start of spine
+      if (!tocItem.anchor.empty()) {
+        int anchorPage = -1;
+        for (const auto& a : anchors) {
+          if (a.first == tocItem.anchor) {
+            anchorPage = a.second;
+            break;
+          }
+        }
+        if (anchorPage < 0) continue;  // Anchor not resolved yet
+        entryPage = anchorPage;
+      }
+
+      if (entryPage <= currentSectionPage_ && entryPage >= bestMatchPage) {
+        bestMatch = i;
+        bestMatchPage = entryPage;
+      }
+    }
+
+    return bestMatch;
   } else if (type == ContentType::Xtc) {
     // For XTC, find chapter containing current page
     const uint16_t count = core.content.tocCount();
@@ -1132,14 +1253,50 @@ void ReaderState::jumpToTocEntry(Core& core, int tocIndex) {
   ContentType type = core.content.metadata().type;
 
   if (type == ContentType::Epub) {
-    // For EPUB, pageNum is spine index
+    auto* provider = core.content.asEpub();
+    if (!provider || !provider->getEpub()) return;
+    auto epub = provider->getEpubShared();
+
     if (static_cast<int>(chapter.pageNum) != currentSpineIndex_) {
+      // Different spine — full reset
       // Task already stopped by enterTocMode(); caller restarts after exitTocMode()
       currentSpineIndex_ = chapter.pageNum;
-      currentSectionPage_ = 0;
       parser_.reset();
       parserSpineIndex_ = -1;
       pageCache_.reset();
+      currentSectionPage_ = 0;
+    } else {
+      // Same spine — navigate using anchor (default to page 0)
+      currentSectionPage_ = 0;
+    }
+
+    // Try anchor-based navigation for precise positioning
+    auto tocItem = epub->getTocItem(tocIndex);
+    if (!tocItem.anchor.empty()) {
+      std::string cachePath = epubSectionCachePath(epub->getCachePath(), chapter.pageNum);
+      int page = loadAnchorPage(cachePath, tocItem.anchor);
+
+      // Anchor not resolved — build cache until found or chapter fully parsed
+      if (page < 0) {
+        const Theme& theme = THEME_MANAGER.current();
+        renderer_.clearScreen(theme.backgroundColor);
+        ui::centeredMessage(renderer_, theme, core.settings.getReaderFontId(theme), "Indexing...");
+        renderer_.displayBuffer();
+
+        createOrExtendCache(core);
+        page = loadAnchorPage(cachePath, tocItem.anchor);
+
+        while (page < 0 && pageCache_ && pageCache_->isPartial()) {
+          const size_t pagesBefore = pageCache_->pageCount();
+          createOrExtendCache(core);
+          if (!pageCache_ || pageCache_->pageCount() <= pagesBefore) break;
+          page = loadAnchorPage(cachePath, tocItem.anchor);
+        }
+      }
+
+      if (page >= 0) {
+        currentSectionPage_ = page;
+      }
     }
   } else if (type == ContentType::Xtc) {
     // For XTC, pageNum is page index

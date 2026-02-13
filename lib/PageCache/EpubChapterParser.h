@@ -5,6 +5,8 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "ContentParser.h"
 
@@ -41,6 +43,9 @@ class EpubChapterParser : public ContentParser {
   uint16_t pagesCreated_ = 0;
   bool hitMaxPages_ = false;
 
+  // Captured anchor map from parser (persisted after liveParser_ is destroyed)
+  std::vector<std::pair<std::string, uint16_t>> anchorMap_;
+
   void cleanupTempFiles();
 
  public:
@@ -53,4 +58,5 @@ class EpubChapterParser : public ContentParser {
   bool hasMoreContent() const override { return hasMore_; }
   bool canResume() const override { return initialized_ && liveParser_ != nullptr; }
   void reset() override;
+  const std::vector<std::pair<std::string, uint16_t>>& getAnchorMap() const override;
 };

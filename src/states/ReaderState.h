@@ -127,6 +127,10 @@ class ReaderState : public State {
   // Get first content spine index (skips cover document when appropriate)
   static int calcFirstContentSpine(bool hasCover, int textStartIndex, size_t spineCount);
 
+  // Anchor-to-page persistence for intra-spine TOC navigation
+  static void saveAnchorMap(const ContentParser& parser, const std::string& cachePath);
+  static int loadAnchorPage(const std::string& cachePath, const std::string& anchor);
+
   // Source state (where reader was opened from)
   StateId sourceState_ = StateId::Home;
 

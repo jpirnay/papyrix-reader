@@ -7,6 +7,8 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "../ParsedText.h"
 #include "../RenderConfig.h"
@@ -79,6 +81,9 @@ class ChapterHtmlSlimParser {
   // Pre-parse data URI stripper to prevent expat OOM on large embedded images
   DataUriStripper dataUriStripper_;
 
+  // Anchor-to-page mapping: element id → page index (0-based)
+  std::vector<std::pair<std::string, uint16_t>> anchorMap_;
+
   // Check if parsing should abort due to timeout or memory pressure
   bool shouldAbort() const;
 
@@ -127,4 +132,5 @@ class ChapterHtmlSlimParser {
   bool isSuspended() const { return suspended_; }
   void addLineToPage(std::shared_ptr<TextBlock> line);
   bool wasAborted() const { return aborted_; }
+  const std::vector<std::pair<std::string, uint16_t>>& getAnchorMap() const { return anchorMap_; }
 };

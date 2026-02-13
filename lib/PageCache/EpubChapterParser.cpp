@@ -39,6 +39,14 @@ void EpubChapterParser::reset() {
   hasMore_ = true;
   parseHtmlPath_.clear();
   chapterBasePath_.clear();
+  anchorMap_.clear();
+}
+
+const std::vector<std::pair<std::string, uint16_t>>& EpubChapterParser::getAnchorMap() const {
+  if (liveParser_) {
+    return liveParser_->getAnchorMap();
+  }
+  return anchorMap_;
 }
 
 bool EpubChapterParser::parsePages(const std::function<void(std::unique_ptr<Page>)>& onPageComplete, uint16_t maxPages,
@@ -57,6 +65,7 @@ bool EpubChapterParser::parsePages(const std::function<void(std::unique_ptr<Page
     hasMore_ = liveParser_->isSuspended() || liveParser_->wasAborted() || (!success && pagesCreated_ > 0);
 
     if (!liveParser_->isSuspended()) {
+      anchorMap_ = liveParser_->getAnchorMap();
       liveParser_.reset();
       cleanupTempFiles();
       initialized_ = false;
@@ -154,6 +163,7 @@ bool EpubChapterParser::parsePages(const std::function<void(std::unique_ptr<Page
 
   // If parser finished (not suspended), clean up
   if (!liveParser_->isSuspended()) {
+    anchorMap_ = liveParser_->getAnchorMap();
     liveParser_.reset();
     cleanupTempFiles();
     initialized_ = false;

@@ -2,6 +2,9 @@
 
 #include <functional>
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 class Page;
 class GfxRenderer;
@@ -50,4 +53,13 @@ class ContentParser {
    * Call this before re-parsing to extend cache.
    */
   virtual void reset() = 0;
+
+  /**
+   * Get anchor-to-page mapping (element id → page index).
+   * Only meaningful for EPUB parsers; returns empty for other formats.
+   */
+  virtual const std::vector<std::pair<std::string, uint16_t>>& getAnchorMap() const {
+    static const std::vector<std::pair<std::string, uint16_t>> empty;
+    return empty;
+  }
 };

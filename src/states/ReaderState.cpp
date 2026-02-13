@@ -880,7 +880,8 @@ bool ReaderState::renderCoverPage(Core& core) {
                                                    vp.marginLeft, pagesUntilRefresh,
                                                    core.settings.getPagesPerRefreshValue(), turnOffScreen);
 
-  pagesUntilFullRefresh_ = pagesUntilRefresh;
+  // Force half refresh on next page to fully clear the cover image
+  pagesUntilFullRefresh_ = 1;
   return rendered;
 }
 

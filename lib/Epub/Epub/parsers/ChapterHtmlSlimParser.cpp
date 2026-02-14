@@ -658,6 +658,12 @@ void ChapterHtmlSlimParser::addLineToPage(std::shared_ptr<TextBlock> line) {
   if (currentPageNextY + lineHeight > config.viewportHeight) {
     ++pagesCreated_;
     if (!completePageFn(std::move(currentPage))) {
+      // Preserve this line for the next batch — it's already been
+      // extracted from the text block and would be lost otherwise
+      currentPage.reset(new Page());
+      currentPageNextY = 0;
+      currentPage->elements.push_back(std::make_shared<PageLine>(line, 0, currentPageNextY));
+      currentPageNextY += lineHeight;
       stopRequested_ = true;
       if (xmlParser_) {
         XML_StopParser(xmlParser_, XML_TRUE);  // Resumable suspend
@@ -696,15 +702,19 @@ void ChapterHtmlSlimParser::makePages() {
   const int lineHeight = renderer.getLineHeight(config.fontId) * config.lineCompression;
   currentTextBlock->layoutAndExtractLines(
       renderer, config.fontId, config.viewportWidth,
-      [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); });
+      [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); }, true,
+      [this]() -> bool { return stopRequested_; });
   // Extra paragraph spacing based on spacingLevel (0=none, 1=small, 3=large)
-  switch (config.spacingLevel) {
-    case 1:
-      currentPageNextY += lineHeight / 4;  // Small (1/4 line)
-      break;
-    case 3:
-      currentPageNextY += lineHeight;  // Large (full line)
-      break;
+  // Skip if aborted mid-block — spacing between paragraphs, not mid-paragraph
+  if (!stopRequested_) {
+    switch (config.spacingLevel) {
+      case 1:
+        currentPageNextY += lineHeight / 4;  // Small (1/4 line)
+        break;
+      case 3:
+        currentPageNextY += lineHeight;  // Large (full line)
+        break;
+    }
   }
 }
 

@@ -244,8 +244,7 @@ bool ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fo
   const size_t lineCount = includeLastLine ? lineBreakIndices.size() : lineBreakIndices.size() - 1;
 
   for (size_t i = 0; i < lineCount; ++i) {
-    // Check for abort periodically during line extraction
-    if (shouldAbort && (i % 50 == 0) && shouldAbort()) {
+    if (shouldAbort && shouldAbort()) {
       return false;
     }
     extractLine(i, pageWidth, spaceWidth, wordWidths, lineBreakIndices, processLine);

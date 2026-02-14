@@ -1,5 +1,59 @@
 
 
+## v1.6.1 (2026-02-14)
+
+*  EPUB: Silently skip unsupported image formats instead of showing placeholder [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  EPUB: Preserve overflow line on page-break abort and check abort during layout. Issue #47 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.6.0 (2026-02-13)
+
+*  EPUB: Add anchor-based TOC navigation for intra-spine positioning. Issue #41 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ReaderState: Simplify thumbnail generation and retry caching if interrupted [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.5.0 (2026-02-13)
+
+*  Add pytrhon reqs for platformio [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Remove cover dithering option, always use 1-bit; skip anti-aliasing for custom fonts [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  CSS: Remove text-indent and margin parsing, reduce max file size to 64KB [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ZipFile: Reduce memory fragmentation and allocation sizes [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Fonts: Remove italic support, reduce cache sizes for memory optimization [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ReaderState: Clear screen before rendering cached pages [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  HomeView: Remove card borders and simplify book info layout. Issue #42 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Settings: Use external font for TOC only when one is configured [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  ReaderState: Force full refresh after cover page to clear residual image [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  HomeView: Use external font for book title and author on home screen [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.4.3 (2026-02-11)
+
+*  Reader: Fix backward navigation by fully caching chapter for last-page lookup. Issue #41 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Raise decorative image skip threshold from 3px to 20px [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.4.2 (2026-02-10)
+
+*  Docs: Add soft-brick recovery troubleshooting guide [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Font: Fix Latin character spacing with CJK external font loaded [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  PageCache: Add incremental (hot) extend for EPUB parser resume. Issue #41 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Reader: Fix SPI bus conflict by stopping cache task during TOC overlay [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
+## v1.4.1 (2026-02-09)
+
+*  Update CHANGELOG.md [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Epub: Add CSS parser safety limits and low-memory CSS skip [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Network: Fix WiFi scan reliability and add scan retry logic. Issue #39 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Bump version [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+*  Network: Move Scan button to rightmost position in WiFi list [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
+
+
 ## v1.4.0 (2026-02-09)
 
 *  Add Arabic text support with shaping, RTL layout, and CSS direction. Issue #33 [[Pavel Liashkov](mailto:pavel.liashkov@protonmail.com)]
